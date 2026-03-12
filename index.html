@@ -868,10 +868,15 @@ function closeDetail() { document.getElementById('detailModal').classList.remove
 function renderMonthlyReport() {
   const month = parseInt(document.getElementById('reportMonth').value);
   const year  = parseInt(document.getElementById('reportYear').value);
+  const selMonthKey = `${year}-${String(month+1).padStart(2,'0')}`;
   const monthName = new Date(year,month,1).toLocaleString('en-GB',{month:'long',year:'numeric'});
 
+  // Previous two months relative to selected month
+  const prevMK1 = monthKey(new Date(year, month-1, 1));
+  const prevMK2 = monthKey(new Date(year, month-2, 1));
+
   const profiles = buildClientProfiles();
-  const atRisk = Object.values(profiles).filter(p => p.status==='red'||p.status==='amber').sort((a,b)=>{ const o={red:0,amber:1}; return (o[a.status]||2)-(o[b.status]||2)||a.client.localeCompare(b.client); });
+  const allProfileList = Object.values(profiles);
 
   // Trades in selected month
   const monthTrades = allTrades.filter(t => {
@@ -879,28 +884,85 @@ function renderMonthlyReport() {
     return d && d.getMonth()===month && d.getFullYear()===year;
   });
 
-  const byClient = {};
+  const byClientThisMonth = {};
   monthTrades.forEach(t => {
-    if (!byClient[t.client]) byClient[t.client]={count:0,total:0};
-    byClient[t.client].count++;
-    if (!isNaN(t.amount)&&t.amount>0) byClient[t.client].total+=t.amount;
+    if (!byClientThisMonth[t.client]) byClientThisMonth[t.client]={count:0,total:0,revenue:0};
+    byClientThisMonth[t.client].count++;
+    if (!isNaN(t.amount)&&t.amount>0) byClientThisMonth[t.client].total+=t.amount;
+    if (!isNaN(t.spread)&&t.spread>0&&!isNaN(t.amount)&&t.amount>0)
+      byClientThisMonth[t.client].revenue += (t.spread/100)*t.amount;
   });
+
+  // Clients who traded in prev 1 or 2 months but NOT in selected month
+  const missedClients = allProfileList.filter(p => {
+    const tradedPrev = (p.revenueByMonth[prevMK1]>0) || (p.revenueByMonth[prevMK2]>0);
+    const tradedThis = byClientThisMonth[p.client] && byClientThisMonth[p.client].count > 0;
+    return tradedPrev && !tradedThis && p.avgMonthlyRevenue > 0;
+  }).sort((a,b) => b.avgMonthlyRevenue - a.avgMonthlyRevenue);
 
   const container = document.getElementById('reportContent');
 
-  if (!Object.keys(profiles).length) {
+  if (!allProfileList.length) {
     container.innerHTML = '<div class="empty-state"><p>No data uploaded yet.</p></div>';
     return;
   }
 
-  let html = `<h3 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:16px">${monthName}</h3>`;
+  let html = `<h3 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:20px">${monthName}</h3>`;
 
-  // At-risk clients section
-  html += `<div class="detail-section-title" style="margin-bottom:10px">⚠ At-Risk & Watch Clients</div>`;
+  // ── Revenue Impact section ─────────────────────────────────────
+  const totalMissedRevenue = missedClients.reduce((s,p) => s+p.avgMonthlyRevenue, 0);
+  const totalActualRevenue = monthTrades.reduce((s,t) => {
+    if (!isNaN(t.spread)&&t.spread>0&&!isNaN(t.amount)&&t.amount>0) return s+(t.spread/100)*t.amount;
+    return s;
+  }, 0);
+
+  html += `<div class="detail-section-title" style="margin-bottom:12px">💰 Revenue Impact</div>`;
+
+  if (missedClients.length) {
+    // Summary box at top
+    html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+      <div style="background:var(--green-bg);border:1px solid rgba(22,163,74,0.2);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--green)">£${totalActualRevenue.toFixed(0)}</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Earned</div>
+      </div>
+      <div style="background:var(--red-bg);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--red)">−£${totalMissedRevenue.toFixed(0)}</div>
+        <div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Missed</div>
+      </div>
+      <div style="background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:8px;padding:14px;text-align:center">
+        <div style="font-size:20px;font-weight:700;color:var(--blue)">£${(totalActualRevenue+totalMissedRevenue).toFixed(0)}</div>
+        <div style="font-size:11px;color:var(--blue);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Potential</div>
+      </div>
+    </div>`;
+
+    // Per-client missed revenue table
+    html += `<div style="margin-bottom:20px">
+      <div class="report-row report-row-header" style="grid-template-columns:2fr 1fr 1fr 1fr">
+        <span>Client</span><span>Last Traded</span><span>Avg Monthly Revenue</span><span>Missed This Month</span>
+      </div>`;
+    missedClients.forEach(p => {
+      const lastStr = p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+      html += `<div class="report-row" style="grid-template-columns:2fr 1fr 1fr 1fr">
+        <span style="font-weight:600">${p.client}</span>
+        <span>${lastStr}</span>
+        <span style="color:var(--green);font-weight:600">£${p.avgMonthlyRevenue.toFixed(2)}</span>
+        <span style="color:var(--red);font-weight:700">−£${p.avgMonthlyRevenue.toFixed(2)}</span>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<p style="font-size:13px;color:var(--text-dim);padding:10px 0 16px">All active clients traded this month — no missed revenue. ✓</p>`;
+  }
+
+  // ── At-risk clients section ────────────────────────────────────
+  const atRisk = allProfileList.filter(p => p.status==='red'||p.status==='amber')
+    .sort((a,b) => { const o={red:0,amber:1}; return (o[a.status]||2)-(o[b.status]||2)||a.client.localeCompare(b.client); });
+
+  html += `<div class="detail-section-title" style="margin-bottom:10px;margin-top:4px">⚠ At-Risk & Watch Clients</div>`;
   if (atRisk.length) {
     html += `<div class="report-row report-row-header"><span>Client</span><span>Status</span><span>Last Trade</span><span>Trades This Month</span></div>`;
     atRisk.forEach(p => {
-      const mo = byClient[p.client]||{count:0,total:0};
+      const mo = byClientThisMonth[p.client]||{count:0,total:0};
       const statusLabel = { red:'At Risk', amber:'Watch' }[p.status]||p.status;
       const statusColor = p.status==='red'?'var(--red)':'var(--amber)';
       html += `<div class="report-row">
@@ -911,22 +973,23 @@ function renderMonthlyReport() {
       </div>`;
     });
   } else {
-    html += '<p style="font-size:13px;color:var(--text-dim);padding:10px 0">No at-risk clients this month. ✓</p>';
+    html += '<p style="font-size:13px;color:var(--text-dim);padding:10px 0">No at-risk clients. ✓</p>';
   }
 
-  // Monthly summary
-  const totalClients = Object.keys(profiles).length;
-  const tradedThisMonth = Object.keys(byClient).length;
-  const totalVolume = monthTrades.reduce((s,t)=>s+(!isNaN(t.amount)&&t.amount>0?t.amount:0),0);
+  // ── Monthly summary ────────────────────────────────────────────
+  const totalClients   = allProfileList.length;
+  const tradedThisMo   = Object.keys(byClientThisMonth).length;
+  const totalVolume    = monthTrades.reduce((s,t)=>s+(!isNaN(t.amount)&&t.amount>0?t.amount:0),0);
 
   html += `<div class="report-summary" style="margin-top:20px">
     <div class="report-summary-row"><span>Total clients</span><span>${totalClients}</span></div>
-    <div class="report-summary-row"><span>Traded this month</span><span>${tradedThisMonth}</span></div>
-    <div class="report-summary-row"><span>Not traded this month</span><span style="color:var(--red)">${totalClients-tradedThisMonth}</span></div>
+    <div class="report-summary-row"><span>Traded this month</span><span>${tradedThisMo}</span></div>
+    <div class="report-summary-row"><span>Not traded this month</span><span style="color:var(--red)">${totalClients-tradedThisMo}</span></div>
+    <div class="report-summary-row"><span>Clients with missed revenue</span><span style="color:var(--red)">${missedClients.length}</span></div>
     <div class="report-summary-row"><span>Total trades</span><span>${monthTrades.length}</span></div>
     ${totalVolume>0?`<div class="report-summary-row"><span>Total volume</span><span>${formatAmount(totalVolume)}</span></div>`:''}
-    <div class="report-summary-row"><span>At-risk clients</span><span style="color:var(--red)">${atRisk.filter(p=>p.status==='red').length}</span></div>
-    <div class="report-summary-row"><span>Watch clients</span><span style="color:var(--amber)">${atRisk.filter(p=>p.status==='amber').length}</span></div>
+    ${totalActualRevenue>0?`<div class="report-summary-row"><span>Revenue earned</span><span style="color:var(--green)">£${totalActualRevenue.toFixed(2)}</span></div>`:''}
+    ${totalMissedRevenue>0?`<div class="report-summary-row"><span>Revenue missed</span><span style="color:var(--red)">−£${totalMissedRevenue.toFixed(2)}</span></div>`:''}
   </div>`;
 
   container.innerHTML = html;
