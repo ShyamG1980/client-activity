@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>C4U Client Activity</title>
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#0057b8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="C4U Activity">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --blue:      #0057b8;
+  --blue-dark: #003d82;
+  --blue-light:#e8f0fb;
+  --blue-mid:  #ccddf5;
+  --white:     #ffffff;
+  --bg:        #f4f7fc;
+  --border:    #d0ddf0;
+  --text:      #1a2b4a;
+  --text-mid:  #4a6080;
+  --text-dim:  #8098b8;
+  --green:     #16a34a;
+  --green-bg:  #dcfce7;
+  --amber:     #d97706;
+  --amber-bg:  #fef3c7;
+  --red:       #dc2626;
+  --red-bg:    #fee2e2;
+  --grey:      #6b7280;
+  --grey-bg:   #f3f4f6;
+  --shadow-sm: 0 1px 4px rgba(0,87,184,0.08);
+  --shadow:    0 2px 12px rgba(0,87,184,0.12);
+  --font: "Inter", sans-serif;
+  --radius: 10px;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:var(--bg); color:var(--text); font-family:var(--font); min-height:100vh; padding-bottom:40px; }
+
+/* Header */
+header { background:var(--blue); padding:16px 20px; display:flex; align-items:center; gap:14px; box-shadow:0 2px 8px rgba(0,0,0,0.15); }
+.logo-img { width:38px; height:38px; border-radius:8px; background:white; padding:4px; object-fit:contain; }
+.header-text h1 { font-size:17px; font-weight:700; color:#fff; }
+.header-text p  { font-size:11px; color:rgba(255,255,255,0.7); margin-top:1px; }
+
+/* Tabs */
+.tabs { background:var(--white); border-bottom:2px solid var(--border); display:flex; overflow-x:auto; scrollbar-width:none; }
+.tabs::-webkit-scrollbar { display:none; }
+.tab { padding:12px 20px; font-size:13px; font-weight:600; color:var(--text-dim); cursor:pointer; white-space:nowrap; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; }
+.tab.active { color:var(--blue); border-bottom-color:var(--blue); }
+
+/* Content */
+.content { max-width:900px; margin:0 auto; padding:20px 16px; }
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
+
+/* Cards */
+.card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:20px; margin-bottom:16px; box-shadow:var(--shadow-sm); }
+.card-title { font-size:12px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.7px; margin-bottom:16px; padding-bottom:10px; border-bottom:2px solid var(--blue-light); }
+
+/* Upload zone */
+.upload-zone { border:2px dashed var(--border); border-radius:var(--radius); padding:40px 20px; text-align:center; cursor:pointer; transition:all 0.2s; }
+.upload-zone:hover { border-color:var(--blue); background:var(--blue-light); }
+.upload-zone h3 { font-size:15px; font-weight:600; color:var(--text); margin-bottom:6px; }
+.upload-zone p { font-size:13px; color:var(--text-dim); }
+.upload-zone input { display:none; }
+
+/* Mapper */
+.mapper { display:none; margin-top:16px; }
+.mapper h3 { font-size:13px; font-weight:600; color:var(--text-mid); margin-bottom:12px; }
+.mapper-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
+.mapper-row { display:flex; flex-direction:column; gap:4px; }
+.mapper-row label { font-size:11px; font-weight:600; color:var(--text-mid); text-transform:uppercase; letter-spacing:0.4px; }
+.mapper-row select { background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:8px 12px; border-radius:7px; font-family:var(--font); font-size:13px; outline:none; -webkit-appearance:none; }
+.mapper-row select:focus { border-color:var(--blue); }
+
+/* Buttons */
+.btn { display:inline-block; padding:11px 20px; border-radius:8px; border:none; font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; transition:all 0.15s; }
+.btn-primary { background:var(--blue); color:#fff; box-shadow:var(--shadow); }
+.btn-primary:hover { background:var(--blue-dark); }
+.btn-secondary { background:var(--white); color:var(--text-mid); border:1.5px solid var(--border); margin-left:8px; }
+.btn-secondary:hover { border-color:var(--blue); color:var(--blue); }
+
+/* Stats row */
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
+.stat-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:16px; text-align:center; box-shadow:var(--shadow-sm); }
+.stat-val { font-size:28px; font-weight:700; color:var(--blue); }
+.stat-label { font-size:11px; color:var(--text-dim); margin-top:4px; font-weight:500; text-transform:uppercase; letter-spacing:0.4px; }
+
+/* Traffic light legend */
+.legend { display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px; font-size:12px; color:var(--text-mid); align-items:center; }
+.legend-item { display:flex; align-items:center; gap:6px; }
+.dot-green  { width:10px;height:10px;border-radius:50%;background:var(--green);flex-shrink:0; }
+.dot-amber  { width:10px;height:10px;border-radius:50%;background:var(--amber);flex-shrink:0; }
+.dot-red    { width:10px;height:10px;border-radius:50%;background:var(--red);flex-shrink:0; }
+.dot-grey   { width:10px;height:10px;border-radius:50%;background:var(--grey);flex-shrink:0; }
+
+/* Client cards grid */
+.clients-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:12px; }
+.client-card { background:var(--white); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow-sm); cursor:pointer; transition:all 0.15s; position:relative; }
+.client-card:hover { box-shadow:var(--shadow); border-color:var(--blue-mid); transform:translateY(-1px); }
+.client-card.status-green { border-left:4px solid var(--green); }
+.client-card.status-amber { border-left:4px solid var(--amber); }
+.client-card.status-red   { border-left:4px solid var(--red); }
+.client-card.status-grey  { border-left:4px solid var(--grey); }
+.client-name { font-size:14px; font-weight:600; color:var(--text); margin-bottom:8px; padding-right:60px; }
+.client-status-badge { position:absolute; top:14px; right:14px; font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px; text-transform:uppercase; letter-spacing:0.4px; }
+.badge-green { background:var(--green-bg); color:var(--green); }
+.badge-amber { background:var(--amber-bg); color:var(--amber); }
+.badge-red   { background:var(--red-bg);   color:var(--red); }
+.badge-grey  { background:var(--grey-bg);  color:var(--grey); }
+.client-meta { font-size:11px; color:var(--text-dim); margin-bottom:4px; }
+.client-meta strong { color:var(--text-mid); }
+.client-alerts { margin-top:10px; }
+.alert-pill { display:inline-block; font-size:10px; padding:2px 8px; border-radius:20px; margin:2px 2px 0 0; font-weight:500; }
+.alert-frequency { background:#fef3c7; color:#92400e; }
+.alert-amount    { background:#fee2e2; color:#991b1b; }
+.alert-dormant   { background:#f3f4f6; color:#374151; }
+.alert-missing   { background:#ede9fe; color:#5b21b6; }
+
+/* Filters */
+.filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center; }
+.filter-select { background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:7px 12px; border-radius:7px; font-family:var(--font); font-size:13px; outline:none; -webkit-appearance:none; cursor:pointer; }
+.filter-select:focus { border-color:var(--blue); }
+.search-input { background:var(--white); border:1.5px solid var(--border); color:var(--text); padding:7px 12px; border-radius:7px; font-family:var(--font); font-size:13px; outline:none; flex:1; min-width:160px; }
+.search-input:focus { border-color:var(--blue); }
+
+/* Detail modal */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:200; align-items:center; justify-content:center; padding:16px; }
+.modal-overlay.show { display:flex; }
+.modal-box { background:var(--white); border-radius:14px; padding:24px; width:100%; max-width:560px; max-height:90vh; overflow-y:auto; box-shadow:0 8px 40px rgba(0,0,0,0.2); }
+.modal-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.modal-title { font-size:16px; font-weight:700; color:var(--text); }
+.modal-close { background:none; border:none; font-size:20px; color:var(--text-dim); cursor:pointer; padding:0 4px; }
+.detail-section { margin-bottom:18px; }
+.detail-section-title { font-size:11px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.6px; margin-bottom:10px; padding-bottom:6px; border-bottom:1px solid var(--blue-light); }
+.detail-row { display:flex; justify-content:space-between; font-size:13px; padding:5px 0; border-bottom:1px solid var(--bg); }
+.detail-row:last-child { border-bottom:none; }
+.detail-row span:first-child { color:var(--text-mid); }
+.detail-row span:last-child { font-weight:600; color:var(--text); }
+.mini-chart { display:flex; align-items:flex-end; gap:3px; height:48px; margin-top:10px; }
+.bar { background:var(--blue-mid); border-radius:3px 3px 0 0; min-width:16px; flex:1; transition:background 0.15s; position:relative; }
+.bar.current { background:var(--blue); }
+.bar.zero { background:var(--red-bg); border:1px dashed var(--red); opacity:0.6; }
+.bar-label { font-size:9px; color:var(--text-dim); text-align:center; margin-top:3px; }
+.chart-wrap { overflow-x:auto; }
+
+/* Email modal */
+.email-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:300; align-items:center; justify-content:center; padding:16px; }
+.email-modal.show { display:flex; }
+.email-box { background:var(--white); border-radius:14px; padding:24px; width:100%; max-width:580px; max-height:90vh; overflow-y:auto; }
+.email-box h3 { font-size:15px; font-weight:700; color:var(--text); margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; }
+.email-field { margin-bottom:12px; }
+.email-field label { display:block; font-size:11px; font-weight:600; color:var(--text-mid); text-transform:uppercase; letter-spacing:0.4px; margin-bottom:5px; }
+.email-field input, .email-field textarea { width:100%; background:var(--bg); border:1.5px solid var(--border); color:var(--text); padding:9px 12px; border-radius:7px; font-family:var(--font); font-size:13px; outline:none; resize:vertical; }
+.email-field input:focus, .email-field textarea:focus { border-color:var(--blue); }
+.email-field textarea { min-height:200px; line-height:1.6; }
+.send-btn { background:var(--blue); color:#fff; border:none; padding:11px 24px; border-radius:8px; font-family:var(--font); font-size:14px; font-weight:600; cursor:pointer; }
+.send-btn:hover { background:var(--blue-dark); }
+
+/* Monthly report */
+.report-broker-block { margin-bottom:20px; }
+.report-section-title { font-size:12px; font-weight:700; color:var(--blue); text-transform:uppercase; letter-spacing:0.6px; padding-bottom:6px; border-bottom:2px solid var(--blue-light); margin-bottom:10px; display:flex; justify-content:space-between; }
+.report-row { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:8px; padding:8px 10px; font-size:12px; border-radius:6px; margin-bottom:3px; }
+.report-row:nth-child(odd) { background:var(--bg); }
+.report-row-header { font-weight:700; color:var(--text-mid); font-size:11px; text-transform:uppercase; letter-spacing:0.4px; }
+.report-summary { background:var(--blue-light); border:1px solid var(--blue-mid); border-radius:8px; padding:14px; margin-top:16px; }
+.report-summary-row { display:flex; justify-content:space-between; font-size:13px; padding:4px 0; }
+.report-summary-row span:first-child { color:var(--text-mid); }
+.report-summary-row span:last-child { font-weight:600; color:var(--text); }
+
+.empty-state { text-align:center; padding:40px 20px; color:var(--text-dim); }
+.empty-state p { font-size:14px; margin-top:8px; }
+
+.hidden { display:none !important; }
+.note { font-size:12px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
+</style>
+</head>
+<body>
+
+<header>
+  <img src="./icons/icon-192.png" class="logo-img" alt="C4U">
+  <div class="header-text">
+    <h1>C4U Client Activity</h1>
+    <p>Pattern tracking &amp; at-risk client alerts</p>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" id="tab-upload" onclick="switchTab('upload')">Upload Data</div>
+  <div class="tab" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</div>
+  <div class="tab" id="tab-report" onclick="switchTab('report')">Monthly Report</div>
+</div>
+
+<div class="content">
+
+  <!-- Upload tab -->
+  <div class="tab-panel active" id="panel-upload">
+    <div class="card">
+      <div class="card-title">Upload Trade Data</div>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls">
+        <span style="font-size:36px;display:block;margin-bottom:12px">📂</span>
+        <h3>Drop your CSV or Excel file here</h3>
+        <p>Each upload adds to history — patterns are built across all sessions</p>
+      </div>
+      <div class="mapper" id="mapper">
+        <h3>Map your columns</h3>
+        <div class="mapper-grid" id="mapperGrid"></div>
+        <button class="btn btn-primary" onclick="applyMapping()">Analyse & Save</button>
+        <button class="btn btn-secondary" onclick="resetUpload()">Cancel</button>
+        <div class="note" id="mapperNote"></div>
+      </div>
+    </div>
+    <div class="card" id="uploadSummary" style="display:none">
+      <div class="card-title">Last Upload Summary</div>
+      <div id="uploadSummaryContent"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard tab -->
+  <div class="tab-panel" id="panel-dashboard">
+    <div class="stats-row" id="statsRow">
+      <div class="stat-card"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total Clients</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--red)" id="statRed">0</div><div class="stat-label">At Risk</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--amber)" id="statAmber">0</div><div class="stat-label">Watch</div></div>
+      <div class="stat-card"><div class="stat-val" style="color:var(--green)" id="statGreen">0</div><div class="stat-label">Active</div></div>
+    </div>
+
+    <div class="legend">
+      <strong style="color:var(--text-mid);font-size:12px">Status:</strong>
+      <div class="legend-item"><div class="dot-green"></div> Active — trading normally</div>
+      <div class="legend-item"><div class="dot-amber"></div> Watch — frequency or amount dropping</div>
+      <div class="legend-item"><div class="dot-red"></div> At Risk — not traded or significant drop</div>
+      <div class="legend-item"><div class="dot-grey"></div> Dormant — no trades in 6+ months</div>
+    </div>
+
+    <div class="filters">
+      <select class="filter-select" id="filterStatus" onchange="renderDashboard()">
+        <option value="">All statuses</option>
+        <option value="red">At Risk</option>
+        <option value="amber">Watch</option>
+        <option value="green">Active</option>
+        <option value="grey">Dormant</option>
+      </select>
+      <input type="text" class="search-input" id="searchClient" placeholder="Search client..." oninput="renderDashboard()">
+      <button class="btn btn-primary" style="padding:8px 16px;font-size:13px" onclick="openEmailModal()">✉ Email At-Risk Summary</button>
+    </div>
+
+    <div class="clients-grid" id="clientsGrid">
+      <div class="empty-state" style="grid-column:1/-1">
+        <span style="font-size:36px">📊</span>
+        <p>Upload trade data to see client activity patterns</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Monthly Report tab -->
+  <div class="tab-panel" id="panel-report">
+    <div class="card">
+      <div class="card-title">Monthly Activity Report</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+        <select id="reportMonth" onchange="renderMonthlyReport()" class="filter-select">
+          <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+          <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+          <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+        </select>
+        <select id="reportYear" onchange="renderMonthlyReport()" class="filter-select"></select>
+        <button onclick="exportMonthlyReport()" class="btn btn-secondary" style="padding:8px 14px;font-size:13px">↓ Export CSV</button>
+      </div>
+      <div id="reportContent"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Client detail modal -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">Client</div>
+      <button class="modal-close" onclick="closeDetail()">✕</button>
+    </div>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<!-- Email modal -->
+<div class="email-modal" id="emailModal">
+  <div class="email-box">
+    <h3>✉ At-Risk Client Summary
+      <button onclick="closeEmailModal()" style="background:none;border:none;font-size:18px;color:var(--text-dim);cursor:pointer">✕</button>
+    </h3>
+    <div class="email-field">
+      <label>To</label>
+      <input type="email" id="emailTo" placeholder="recipient@example.com">
+    </div>
+    <div class="email-field">
+      <label>Subject</label>
+      <input type="text" id="emailSubject">
+    </div>
+    <div class="email-field">
+      <label>Message</label>
+      <textarea id="emailBody"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="send-btn" onclick="sendEmail()">✉ Open in Outlook</button>
+      <button class="btn btn-secondary" onclick="closeEmailModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+// ── Storage ───────────────────────────────────────────────────────
+const STORE_TRADES  = 'ca_trades_v1';
+const STORE_MAP     = 'ca_map_v1';
+const STORE_EMAIL   = 'ca_email_v1';
+const LOOKBACK_MONTHS = 6;
+
+let allTrades = [];
+let rawData = [], columns = [];
+let mapping = { client:'', date:'', amount:'', pair:'', trader:'' };
+
+const FIELD_DEFS = [
+  { key:'client', label:'Client Name *',       required:true,  hints:['client','customer','account','company','name'] },
+  { key:'date',   label:'Trade Date *',         required:true,  hints:['date','tradedate','trade date','time','timestamp','booking'] },
+  { key:'amount', label:'Notional / Amount *',  required:true,  hints:['notional','amount','volume','size','qty','quantity','value'] },
+  { key:'pair',   label:'Currency Pair',        required:false, hints:['pair','ccy','currency','instrument','symbol','product'] },
+  { key:'trader', label:'Trader / Sales',       required:false, hints:['trader','sales','dealer','broker','user'] },
+];
+
+// ── Init ──────────────────────────────────────────────────────────
+function init() {
+  try {
+    const raw = localStorage.getItem(STORE_TRADES);
+    allTrades = raw ? JSON.parse(raw) : [];
+    const m = localStorage.getItem(STORE_MAP);
+    if (m) mapping = { ...mapping, ...JSON.parse(m) };
+  } catch(e) { allTrades = []; }
+
+  const now = new Date();
+  const prevMonth = new Date(now.getFullYear(), now.getMonth()-1, 1);
+  populateYearSelect();
+  document.getElementById('reportMonth').value = prevMonth.getMonth();
+  document.getElementById('reportYear').value  = prevMonth.getFullYear();
+
+  if (allTrades.length) {
+    renderDashboard();
+    renderMonthlyReport();
+    switchTab('dashboard');
+  }
+
+  // File drop
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.style.borderColor='var(--blue)'; });
+  zone.addEventListener('dragleave', () => { zone.style.borderColor=''; });
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.style.borderColor=''; handleFile(e.dataTransfer.files[0]); });
+  document.getElementById('fileInput').addEventListener('change', e => handleFile(e.target.files[0]));
+}
+
+function populateYearSelect() {
+  const yearSel = document.getElementById('reportYear');
+  yearSel.innerHTML = '';
+  const years = new Set();
+  allTrades.forEach(t => { const d = parseDate(t.date); if (d) years.add(d.getFullYear()); });
+  const now = new Date();
+  years.add(now.getFullYear()); years.add(now.getFullYear()-1);
+  [...years].sort((a,b)=>b-a).forEach(y => {
+    const o = document.createElement('option'); o.value=y; o.textContent=y; yearSel.appendChild(o);
+  });
+  yearSel.value = now.getFullYear();
+}
+
+function save() {
+  try { localStorage.setItem(STORE_TRADES, JSON.stringify(allTrades)); } catch(e) { alert('Storage full.'); }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('panel-'+name).classList.add('active');
+}
+
+// ── File handling ─────────────────────────────────────────────────
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type:'array', cellDates:true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      rawData = XLSX.utils.sheet_to_json(ws, { raw:false, dateNF:'dd/mm/yyyy' });
+      if (!rawData.length) { alert('No data found in file.'); return; }
+      columns = Object.keys(rawData[0]);
+      buildMapper();
+    } catch(err) { alert('Could not read file: '+err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function buildMapper() {
+  const grid = document.getElementById('mapperGrid');
+  grid.innerHTML = FIELD_DEFS.map(f => {
+    const saved = mapping[f.key] || '';
+    const auto  = columns.find(c => f.hints.some(h => c.toLowerCase().replace(/[\s_]/g,'').includes(h.replace(/[\s_]/g,'')))) || '';
+    const sel   = saved || auto;
+    return `<div class="mapper-row">
+      <label>${f.label}</label>
+      <select id="map_${f.key}">
+        <option value="">— not mapped —</option>
+        ${columns.map(c => `<option value="${c}" ${c===sel?'selected':''}>${c}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+  document.getElementById('mapper').style.display = 'block';
+}
+
+function applyMapping() {
+  FIELD_DEFS.forEach(f => { mapping[f.key] = document.getElementById('map_'+f.key).value; });
+  const missing = FIELD_DEFS.filter(f => f.required && !mapping[f.key]).map(f => f.label);
+  if (missing.length) { document.getElementById('mapperNote').textContent = 'Please map: '+missing.join(', '); return; }
+  localStorage.setItem(STORE_MAP, JSON.stringify(mapping));
+  processAndStore();
+}
+
+function resetUpload() {
+  document.getElementById('mapper').style.display = 'none';
+  rawData = []; columns = [];
+  document.getElementById('fileInput').value = '';
+}
+
+// ── Process uploaded data ─────────────────────────────────────────
+function processAndStore() {
+  const newTrades = rawData.map(r => ({
+    client: String(r[mapping.client]||'').trim(),
+    date:   mapping.date   ? String(r[mapping.date]||'').trim() : '',
+    amount: mapping.amount ? parseFloat(String(r[mapping.amount]||'').replace(/[,\s£$€]/g,'')) : null,
+    pair:   mapping.pair   ? String(r[mapping.pair]||'').trim().toUpperCase() : '',
+    trader: mapping.trader ? String(r[mapping.trader]||'').trim() : '',
+  })).filter(r => r.client && parseDate(r.date));
+
+  if (!newTrades.length) { alert('No valid rows found. Check your column mapping.'); return; }
+
+  // Deduplicate against existing — match on client+date+amount
+  const existingKeys = new Set(allTrades.map(t => t.client+'|'+t.date+'|'+t.amount));
+  const fresh = newTrades.filter(t => !existingKeys.has(t.client+'|'+t.date+'|'+t.amount));
+
+  allTrades = [...allTrades, ...fresh];
+  save();
+  populateYearSelect();
+  resetUpload();
+
+  const summary = analyseSummary(fresh);
+  document.getElementById('uploadSummaryContent').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:12px">
+      <div class="stat-card"><div class="stat-val" style="font-size:22px">${fresh.length}</div><div class="stat-label">New trades added</div></div>
+      <div class="stat-card"><div class="stat-val" style="font-size:22px;color:var(--red)">${summary.atRisk}</div><div class="stat-label">At-risk clients</div></div>
+      <div class="stat-card"><div class="stat-val" style="font-size:22px;color:var(--amber)">${summary.watch}</div><div class="stat-label">Watch clients</div></div>
+    </div>
+    <p style="font-size:13px;color:var(--text-mid)">${newTrades.length - fresh.length} duplicate trades skipped.</p>
+  `;
+  document.getElementById('uploadSummary').style.display = 'block';
+
+  renderDashboard();
+  renderMonthlyReport();
+  switchTab('dashboard');
+}
+
+function analyseSummary(trades) {
+  const profiles = buildClientProfiles();
+  let atRisk=0, watch=0;
+  Object.values(profiles).forEach(p => {
+    if (p.status==='red') atRisk++;
+    else if (p.status==='amber') watch++;
+  });
+  return { atRisk, watch };
+}
+
+// ── Date parsing ──────────────────────────────────────────────────
+function parseDate(val) {
+  if (!val) return null;
+  const s = String(val).trim();
+  let m;
+  // DD/MM/YYYY or DD-MM-YYYY
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) { const d=new Date(+m[3],+m[2]-1,+m[1]); if (!isNaN(d)) return d; }
+  // DD/MM/YY
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (m) { const yr=+m[3]+(+m[3]<50?2000:1900); const d=new Date(yr,+m[2]-1,+m[1]); if (!isNaN(d)) return d; }
+  // YYYY-MM-DD
+  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) { const d=new Date(+m[1],+m[2]-1,+m[3]); if (!isNaN(d)) return d; }
+  const d = new Date(val);
+  return isNaN(d) ? null : d;
+}
+
+function monthKey(d) { return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+function monthLabel(d) { return d.toLocaleString('en-GB',{month:'short',year:'numeric'}); }
+
+// ── Client profile builder ────────────────────────────────────────
+function buildClientProfiles() {
+  const now = new Date();
+  const cutoff = new Date(now.getFullYear(), now.getMonth()-LOOKBACK_MONTHS, 1);
+  const currentMonthKey = monthKey(now);
+  const prevMonthKey = monthKey(new Date(now.getFullYear(), now.getMonth()-1, 1));
+
+  // Group all trades by client
+  const byClient = {};
+  allTrades.forEach(t => {
+    const d = parseDate(t.date);
+    if (!d) return;
+    if (!byClient[t.client]) byClient[t.client] = [];
+    byClient[t.client].push({ ...t, _date: d });
+  });
+
+  const profiles = {};
+
+  Object.entries(byClient).forEach(([client, trades]) => {
+    trades.sort((a,b) => a._date - b._date);
+    const lastTrade = trades[trades.length-1];
+    const lastDate  = lastTrade._date;
+
+    // Trades within lookback window
+    const recent = trades.filter(t => t._date >= cutoff);
+
+    // Group by month
+    const byMonth = {};
+    recent.forEach(t => {
+      const mk = monthKey(t._date);
+      if (!byMonth[mk]) byMonth[mk] = { count:0, total:0 };
+      byMonth[mk].count++;
+      if (!isNaN(t.amount) && t.amount > 0) byMonth[mk].total += t.amount;
+    });
+
+    // All trades group by month (for chart)
+    const allByMonth = {};
+    trades.forEach(t => {
+      const mk = monthKey(t._date);
+      if (!allByMonth[mk]) allByMonth[mk] = { count:0, total:0 };
+      allByMonth[mk].count++;
+      if (!isNaN(t.amount) && t.amount > 0) allByMonth[mk].total += t.amount;
+    });
+
+    // Baseline: months in lookback excluding current month
+    const baselineMonths = Object.entries(byMonth).filter(([mk]) => mk !== currentMonthKey);
+    const avgCount  = baselineMonths.length ? baselineMonths.reduce((s,[,v])=>s+v.count,0)/baselineMonths.length : 0;
+    const avgAmount = baselineMonths.length ? baselineMonths.reduce((s,[,v])=>s+v.total,0)/baselineMonths.length : 0;
+
+    // Current month stats
+    const currentMonth = byMonth[currentMonthKey] || { count:0, total:0 };
+    const prevMonth_   = byMonth[prevMonthKey]    || { count:0, total:0 };
+
+    // Days since last trade
+    const daysSince = Math.floor((now - lastDate) / (1000*60*60*24));
+
+    // Determine status & alerts
+    const alerts = [];
+    let status = 'green';
+
+    // Dormant: no trades in 6+ months
+    if (daysSince > 180) {
+      status = 'grey';
+      alerts.push({ type:'dormant', msg:`No trades in ${Math.floor(daysSince/30)} months` });
+    } else {
+      // Not traded this month (but usually does and it's past 7th of month)
+      if (now.getDate() > 7 && avgCount > 0 && currentMonth.count === 0) {
+        alerts.push({ type:'missing', msg:'Not traded this month' });
+        if (status === 'green') status = 'red';
+      }
+
+      // Frequency dropping (current or prev month count < 50% of average)
+      const checkCount = currentMonth.count > 0 ? currentMonth.count : prevMonth_.count;
+      if (avgCount > 0 && checkCount < avgCount * 0.5 && avgCount >= 1) {
+        alerts.push({ type:'frequency', msg:`Trading less often (avg ${avgCount.toFixed(1)}/mo)` });
+        if (status === 'green') status = 'amber';
+      }
+
+      // Amount dropping (current or prev month amount < 60% of average)
+      const checkAmount = currentMonth.total > 0 ? currentMonth.total : prevMonth_.total;
+      if (avgAmount > 0 && checkAmount < avgAmount * 0.6 && avgAmount > 0) {
+        alerts.push({ type:'amount', msg:`Amounts down vs avg` });
+        if (status === 'green') status = 'amber';
+      }
+
+      // Multiple amber alerts -> red
+      if (alerts.length >= 2 && status === 'amber') status = 'red';
+    }
+
+    profiles[client] = {
+      client, status, alerts,
+      lastDate, daysSince,
+      totalTrades: trades.length,
+      recentTrades: recent.length,
+      avgCount: avgCount.toFixed(1),
+      avgAmount,
+      currentMonth,
+      allByMonth,
+      trades,
+    };
+  });
+
+  return profiles;
+}
+
+// ── Dashboard rendering ───────────────────────────────────────────
+function renderDashboard() {
+  if (!allTrades.length) return;
+  const profiles = buildClientProfiles();
+  const all = Object.values(profiles);
+
+  // Stats
+  document.getElementById('statTotal').textContent = all.length;
+  document.getElementById('statRed').textContent   = all.filter(p=>p.status==='red').length;
+  document.getElementById('statAmber').textContent = all.filter(p=>p.status==='amber').length;
+  document.getElementById('statGreen').textContent = all.filter(p=>p.status==='green').length;
+
+  // Filters
+  const filterStatus = document.getElementById('filterStatus').value;
+  const search = document.getElementById('searchClient').value.toLowerCase();
+
+  let filtered = all;
+  if (filterStatus) filtered = filtered.filter(p => p.status === filterStatus);
+  if (search) filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
+
+  // Sort: red first, then amber, then green, then grey
+  const order = { red:0, amber:1, green:2, grey:3 };
+  filtered.sort((a,b) => order[a.status]-order[b.status] || a.client.localeCompare(b.client));
+
+  const grid = document.getElementById('clientsGrid');
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><p>No clients match filters.</p></div>';
+    return;
+  }
+
+  const statusLabel = { green:'Active', amber:'Watch', red:'At Risk', grey:'Dormant' };
+  const badgeClass  = { green:'badge-green', amber:'badge-amber', red:'badge-red', grey:'badge-grey' };
+
+  grid.innerHTML = filtered.map(p => {
+    const alertHtml = p.alerts.map(a =>
+      `<span class="alert-pill alert-${a.type}">${a.msg}</span>`
+    ).join('');
+
+    const lastDateStr = p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const amtStr = p.avgAmount > 0 ? formatAmount(p.avgAmount)+' avg/mo' : '';
+
+    return `<div class="client-card status-${p.status}" onclick="openDetail('${p.client.replace(/'/g,"\\'")}')">
+      <div class="client-name">${p.client}</div>
+      <span class="client-status-badge ${badgeClass[p.status]}">${statusLabel[p.status]}</span>
+      <div class="client-meta">Last trade: <strong>${lastDateStr}</strong> (${p.daysSince}d ago)</div>
+      <div class="client-meta">Avg trades/month: <strong>${p.avgCount}</strong>${amtStr?' · '+amtStr:''}</div>
+      <div class="client-alerts">${alertHtml}</div>
+    </div>`;
+  }).join('');
+}
+
+function formatAmount(n) {
+  if (!n || isNaN(n)) return '';
+  if (n >= 1000000) return (n/1000000).toFixed(1)+'M';
+  if (n >= 1000)    return (n/1000).toFixed(0)+'K';
+  return n.toFixed(0);
+}
+
+// ── Client detail modal ───────────────────────────────────────────
+function openDetail(client) {
+  const profiles = buildClientProfiles();
+  const p = profiles[client];
+  if (!p) return;
+
+  document.getElementById('detailTitle').textContent = client;
+
+  // Build 6-month chart data
+  const now = new Date();
+  const months = [];
+  for (let i=5; i>=0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    const mk = monthKey(d);
+    months.push({ mk, label: d.toLocaleString('en-GB',{month:'short'}), data: p.allByMonth[mk]||{count:0,total:0} });
+  }
+  const maxCount = Math.max(...months.map(m=>m.data.count), 1);
+
+  const chartHtml = `
+    <div class="chart-wrap">
+      <div class="mini-chart">
+        ${months.map(m => {
+          const h = Math.max((m.data.count/maxCount)*44, m.data.count>0?4:0);
+          const isCurrent = m.mk === monthKey(now);
+          return `<div style="flex:1;display:flex;flex-direction:column;align-items:center">
+            <div class="bar ${isCurrent?'current':''} ${m.data.count===0?'zero':''}" style="height:${m.data.count>0?h:8}px" title="${m.data.count} trades"></div>
+            <div class="bar-label">${m.label}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+
+  const recentTrades = [...p.trades].sort((a,b)=>b._date-a._date).slice(0,8);
+
+  document.getElementById('detailContent').innerHTML = `
+    <div class="detail-section">
+      <div class="detail-section-title">6-Month Trading Pattern</div>
+      ${chartHtml}
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px">
+        ${months.map(m=>`<div style="text-align:center;font-size:11px">
+          <div style="font-weight:600;color:var(--text)">${m.data.count}</div>
+          <div style="color:var(--text-dim)">${m.label} trades</div>
+          ${m.data.total>0?`<div style="color:var(--text-dim)">${formatAmount(m.data.total)}</div>`:''}
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="detail-section">
+      <div class="detail-section-title">Profile</div>
+      <div class="detail-row"><span>Total trades (all time)</span><span>${p.totalTrades}</span></div>
+      <div class="detail-row"><span>Trades last 6 months</span><span>${p.recentTrades}</span></div>
+      <div class="detail-row"><span>Avg trades/month</span><span>${p.avgCount}</span></div>
+      ${p.avgAmount>0?`<div class="detail-row"><span>Avg monthly volume</span><span>${formatAmount(p.avgAmount)}</span></div>`:''}
+      <div class="detail-row"><span>Last trade date</span><span>${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
+      <div class="detail-row"><span>Days since last trade</span><span>${p.daysSince} days</span></div>
+    </div>
+
+    ${recentTrades.length ? `<div class="detail-section">
+      <div class="detail-section-title">Recent Trades</div>
+      ${recentTrades.map(t=>`<div class="detail-row">
+        <span>${t._date.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}${t.pair?' · '+t.pair:''}</span>
+        <span>${t.amount&&!isNaN(t.amount)?formatAmount(t.amount):'—'}</span>
+      </div>`).join('')}
+    </div>` : ''}
+
+    ${p.alerts.length ? `<div class="detail-section">
+      <div class="detail-section-title">Alerts</div>
+      ${p.alerts.map(a=>`<div style="padding:8px 12px;background:var(--bg);border-radius:6px;margin-bottom:6px;font-size:13px;color:var(--text-mid)">⚠ ${a.msg}</div>`).join('')}
+    </div>` : ''}
+  `;
+
+  document.getElementById('detailModal').classList.add('show');
+}
+
+function closeDetail() { document.getElementById('detailModal').classList.remove('show'); }
+
+// ── Monthly report ────────────────────────────────────────────────
+function renderMonthlyReport() {
+  const month = parseInt(document.getElementById('reportMonth').value);
+  const year  = parseInt(document.getElementById('reportYear').value);
+  const monthName = new Date(year,month,1).toLocaleString('en-GB',{month:'long',year:'numeric'});
+
+  const profiles = buildClientProfiles();
+  const atRisk = Object.values(profiles).filter(p => p.status==='red'||p.status==='amber').sort((a,b)=>{ const o={red:0,amber:1}; return (o[a.status]||2)-(o[b.status]||2)||a.client.localeCompare(b.client); });
+
+  // Trades in selected month
+  const monthTrades = allTrades.filter(t => {
+    const d = parseDate(t.date);
+    return d && d.getMonth()===month && d.getFullYear()===year;
+  });
+
+  const byClient = {};
+  monthTrades.forEach(t => {
+    if (!byClient[t.client]) byClient[t.client]={count:0,total:0};
+    byClient[t.client].count++;
+    if (!isNaN(t.amount)&&t.amount>0) byClient[t.client].total+=t.amount;
+  });
+
+  const container = document.getElementById('reportContent');
+
+  if (!Object.keys(profiles).length) {
+    container.innerHTML = '<div class="empty-state"><p>No data uploaded yet.</p></div>';
+    return;
+  }
+
+  let html = `<h3 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:16px">${monthName}</h3>`;
+
+  // At-risk clients section
+  html += `<div class="detail-section-title" style="margin-bottom:10px">⚠ At-Risk & Watch Clients</div>`;
+  if (atRisk.length) {
+    html += `<div class="report-row report-row-header"><span>Client</span><span>Status</span><span>Last Trade</span><span>Trades This Month</span></div>`;
+    atRisk.forEach(p => {
+      const mo = byClient[p.client]||{count:0,total:0};
+      const statusLabel = { red:'At Risk', amber:'Watch' }[p.status]||p.status;
+      const statusColor = p.status==='red'?'var(--red)':'var(--amber)';
+      html += `<div class="report-row">
+        <span style="font-weight:600">${p.client}</span>
+        <span style="color:${statusColor};font-weight:600">${statusLabel}</span>
+        <span>${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
+        <span>${mo.count>0?mo.count+' trade'+(mo.count>1?'s':'')+(mo.total>0?' ('+formatAmount(mo.total)+')':''):'None'}</span>
+      </div>`;
+    });
+  } else {
+    html += '<p style="font-size:13px;color:var(--text-dim);padding:10px 0">No at-risk clients this month. ✓</p>';
+  }
+
+  // Monthly summary
+  const totalClients = Object.keys(profiles).length;
+  const tradedThisMonth = Object.keys(byClient).length;
+  const totalVolume = monthTrades.reduce((s,t)=>s+(!isNaN(t.amount)&&t.amount>0?t.amount:0),0);
+
+  html += `<div class="report-summary" style="margin-top:20px">
+    <div class="report-summary-row"><span>Total clients</span><span>${totalClients}</span></div>
+    <div class="report-summary-row"><span>Traded this month</span><span>${tradedThisMonth}</span></div>
+    <div class="report-summary-row"><span>Not traded this month</span><span style="color:var(--red)">${totalClients-tradedThisMonth}</span></div>
+    <div class="report-summary-row"><span>Total trades</span><span>${monthTrades.length}</span></div>
+    ${totalVolume>0?`<div class="report-summary-row"><span>Total volume</span><span>${formatAmount(totalVolume)}</span></div>`:''}
+    <div class="report-summary-row"><span>At-risk clients</span><span style="color:var(--red)">${atRisk.filter(p=>p.status==='red').length}</span></div>
+    <div class="report-summary-row"><span>Watch clients</span><span style="color:var(--amber)">${atRisk.filter(p=>p.status==='amber').length}</span></div>
+  </div>`;
+
+  container.innerHTML = html;
+}
+
+function exportMonthlyReport() {
+  const month = parseInt(document.getElementById('reportMonth').value);
+  const year  = parseInt(document.getElementById('reportYear').value);
+  const profiles = buildClientProfiles();
+  const rows = [['Client','Status','Last Trade','Days Since','Avg Trades/Mo','Trades This Month','Volume This Month','Alerts']];
+  const monthTrades = allTrades.filter(t => { const d=parseDate(t.date); return d&&d.getMonth()===month&&d.getFullYear()===year; });
+  const byClient = {};
+  monthTrades.forEach(t => { if (!byClient[t.client]) byClient[t.client]={count:0,total:0}; byClient[t.client].count++; if (!isNaN(t.amount)&&t.amount>0) byClient[t.client].total+=t.amount; });
+  Object.values(profiles).forEach(p => {
+    const mo = byClient[p.client]||{count:0,total:0};
+    rows.push([p.client, p.status, p.lastDate.toLocaleDateString('en-GB'), p.daysSince, p.avgCount, mo.count, mo.total>0?mo.total.toFixed(0):'', p.alerts.map(a=>a.msg).join('; ')]);
+  });
+  const csv = rows.map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = `C4U_Client_Activity_${year}_${String(month+1).padStart(2,'0')}.csv`;
+  a.click();
+}
+
+// ── Email at-risk summary ─────────────────────────────────────────
+function openEmailModal() {
+  const profiles = buildClientProfiles();
+  const atRisk = Object.values(profiles).filter(p=>p.status==='red'||p.status==='amber').sort((a,b)=>{const o={red:0,amber:1};return (o[a.status]||2)-(o[b.status]||2);});
+  if (!atRisk.length) { alert('No at-risk clients to report.'); return; }
+
+  const now = new Date();
+  const lines = atRisk.map(p => {
+    const label = p.status==='red'?'AT RISK':'WATCH';
+    const alertText = p.alerts.map(a=>a.msg).join(', ');
+    return `  • [${label}] ${p.client} — Last traded: ${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} (${p.daysSince}d ago)${alertText?' — '+alertText:''}`;
+  }).join('\n');
+
+  document.getElementById('emailTo').value = localStorage.getItem(STORE_EMAIL)||'';
+  document.getElementById('emailSubject').value = `C4U Client Activity Alert — ${atRisk.filter(p=>p.status==='red').length} At-Risk, ${atRisk.filter(p=>p.status==='amber').length} Watch — ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  document.getElementById('emailBody').value = `Hi,
+
+Please find below the latest client activity summary as of ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}:
+
+${lines}
+
+These clients have been flagged based on their trading patterns over the past 6 months. Please review and consider reaching out where appropriate.
+
+Warm Regards,
+
+Shyam S. Gokani Head of Trading | www.currencies4you.com
+
+T: +44 (0) 1322 319550 M: +44 (0) 7534 285661 E: shyam.gokani@currencies4you.com A: Currencies 4 You, Regus House, Victory Way, Admirals Park, Crossway Dartford, DA2 6QD
+
+This email and any attachments may be confidential and/or legally privileged. If you have received this email and you are not a named addressee, please inform the sender by return email and delete both emails. Currencies 4 You is a company registered in England and Wales (registered no. 06866898).`;
+
+  document.getElementById('emailModal').classList.add('show');
+}
+
+function closeEmailModal() { document.getElementById('emailModal').classList.remove('show'); }
+
+function sendEmail() {
+  const to      = document.getElementById('emailTo').value.trim();
+  const subject = document.getElementById('emailSubject').value.trim();
+  const body    = document.getElementById('emailBody').value.trim();
+  if (to) localStorage.setItem(STORE_EMAIL, to);
+  window.location.href = 'mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
+
+// ── Start ─────────────────────────────────────────────────────────
+init();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script>
+</body>
+</html>
