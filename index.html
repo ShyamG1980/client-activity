@@ -296,7 +296,8 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
   <div class="tab-panel" id="panel-report">
     <div class="card">
       <div class="card-title">Monthly Activity Report</div>
-      <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">Not traded in:</span>
         <select id="reportMonth" onchange="renderMonthlyReport()" class="filter-select">
           <option value="0">January</option><option value="1">February</option><option value="2">March</option>
           <option value="3">April</option><option value="4">May</option><option value="5">June</option>
@@ -304,6 +305,17 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
           <option value="9">October</option><option value="10">November</option><option value="11">December</option>
         </select>
         <select id="reportYear" onchange="renderMonthlyReport()" class="filter-select"></select>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+        <span style="font-size:11px;font-weight:600;color:var(--text-mid);text-transform:uppercase;letter-spacing:0.5px;white-space:nowrap">But traded in:</span>
+        <select id="tradedInMonth" onchange="renderMonthlyReport()" class="filter-select">
+          <option value="">— any previous month —</option>
+          <option value="0">January</option><option value="1">February</option><option value="2">March</option>
+          <option value="3">April</option><option value="4">May</option><option value="5">June</option>
+          <option value="6">July</option><option value="7">August</option><option value="8">September</option>
+          <option value="9">October</option><option value="10">November</option><option value="11">December</option>
+        </select>
+        <select id="tradedInYear" onchange="renderMonthlyReport()" class="filter-select"></select>
         <select id="reportFilterAccountType" onchange="renderMonthlyReport()" class="filter-select">
           <option value="">All account types</option>
           <option value="corporate">Corporate</option>
@@ -436,6 +448,12 @@ function populateYearSelect() {
     const o = document.createElement('option'); o.value=y; o.textContent=y; yearSel.appendChild(o);
   });
   yearSel.value = now.getFullYear();
+  // Also populate tradedInYear if it exists
+  const tradedInYearSel = document.getElementById('tradedInYear');
+  if (tradedInYearSel) {
+    const curTIY = tradedInYearSel.value;
+    tradedInYearSel.innerHTML = '<option value="">—</option>' + [...years].sort((a,b)=>b-a).map(y=>`<option value="${y}" ${String(y)===curTIY?'selected':''}>${y}</option>`).join('');
+  }
 }
 
 function save() {
@@ -877,9 +895,20 @@ function renderMonthlyReport() {
   const month = parseInt(document.getElementById('reportMonth').value);
   const year  = parseInt(document.getElementById('reportYear').value);
   const selMonthKey = `${year}-${String(month+1).padStart(2,'0')}`;
-  const monthName = new Date(year,month,1).toLocaleString('en-GB',{month:'long',year:'numeric'});
+  const notTradedLabel = new Date(year,month,1).toLocaleString('en-GB',{month:'long',year:'numeric'});
 
-  // Previous two months relative to selected month
+  // "But traded in" filter
+  const tradedInMonthVal = document.getElementById('tradedInMonth').value;
+  const tradedInYearVal  = document.getElementById('tradedInYear').value;
+  const hasTradedInFilter = tradedInMonthVal !== '' && tradedInYearVal !== '';
+  const tradedInMK = hasTradedInFilter
+    ? `${tradedInYearVal}-${String(parseInt(tradedInMonthVal)+1).padStart(2,'0')}`
+    : null;
+  const tradedInLabel = hasTradedInFilter
+    ? new Date(parseInt(tradedInYearVal), parseInt(tradedInMonthVal), 1).toLocaleString('en-GB',{month:'long',year:'numeric'})
+    : null;
+
+  // Previous two months relative to selected "not traded in" month (fallback)
   const prevMK1 = monthKey(new Date(year, month-1, 1));
   const prevMK2 = monthKey(new Date(year, month-2, 1));
 
@@ -899,7 +928,7 @@ function renderMonthlyReport() {
   if (reportFilterAT) allProfileList = allProfileList.filter(p => p.accountType && p.accountType.toLowerCase() === reportFilterAT);
   if (reportFilterBB) allProfileList = allProfileList.filter(p => p.bookedBy === reportFilterBB);
 
-  // Trades in selected month
+  // Trades in "not traded in" month
   const monthTrades = allTrades.filter(t => {
     const d = parseDate(t.date);
     return d && d.getMonth()===month && d.getFullYear()===year;
@@ -914,11 +943,15 @@ function renderMonthlyReport() {
       byClientThisMonth[t.client].revenue += (t.spread/100)*t.amount;
   });
 
-  // Clients who traded in prev 1 or 2 months but NOT in selected month
+  // Clients who traded in the specified "traded in" month but NOT in "not traded in" month
   const missedClients = allProfileList.filter(p => {
-    const tradedPrev = (p.revenueByMonth[prevMK1]>0) || (p.revenueByMonth[prevMK2]>0);
-    const tradedThis = byClientThisMonth[p.client] && byClientThisMonth[p.client].count > 0;
-    return tradedPrev && !tradedThis && p.avgMonthlyRevenue > 0;
+    const tradedNotMonth = byClientThisMonth[p.client] && byClientThisMonth[p.client].count > 0;
+    if (tradedNotMonth) return false;
+    if (hasTradedInFilter) {
+      return p.allByMonth[tradedInMK] && p.allByMonth[tradedInMK].count > 0;
+    } else {
+      return (p.revenueByMonth[prevMK1]>0) || (p.revenueByMonth[prevMK2]>0);
+    }
   }).sort((a,b) => b.avgMonthlyRevenue - a.avgMonthlyRevenue);
 
   const container = document.getElementById('reportContent');
@@ -928,7 +961,11 @@ function renderMonthlyReport() {
     return;
   }
 
-  let html = `<h3 style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:20px">${monthName}</h3>`;
+  const filterDesc = hasTradedInFilter
+    ? `Clients who traded in <strong>${tradedInLabel}</strong> but not in <strong>${notTradedLabel}</strong>`
+    : `Clients who traded in the previous 1–2 months but not in <strong>${notTradedLabel}</strong>`;
+
+  let html = `<p style="font-size:13px;color:var(--text-mid);margin-bottom:18px">${filterDesc}</p>`;
 
   // ── Revenue Impact section ─────────────────────────────────────
   const totalMissedRevenue = missedClients.reduce((s,p) => s+p.avgMonthlyRevenue, 0);
@@ -940,15 +977,14 @@ function renderMonthlyReport() {
   html += `<div class="detail-section-title" style="margin-bottom:12px">💰 Revenue Impact</div>`;
 
   if (missedClients.length) {
-    // Summary box at top
     html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
       <div style="background:var(--green-bg);border:1px solid rgba(22,163,74,0.2);border-radius:8px;padding:14px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--green)">£${totalActualRevenue.toFixed(0)}</div>
-        <div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Earned</div>
+        <div style="font-size:11px;color:var(--green);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Earned in ${notTradedLabel.split(' ')[0]}</div>
       </div>
       <div style="background:var(--red-bg);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:14px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--red)">−£${totalMissedRevenue.toFixed(0)}</div>
-        <div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Missed</div>
+        <div style="font-size:11px;color:var(--red);margin-top:3px;font-weight:500;text-transform:uppercase;letter-spacing:0.4px">Missed Revenue</div>
       </div>
       <div style="background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:8px;padding:14px;text-align:center">
         <div style="font-size:20px;font-weight:700;color:var(--blue)">£${(totalActualRevenue+totalMissedRevenue).toFixed(0)}</div>
@@ -956,15 +992,15 @@ function renderMonthlyReport() {
       </div>
     </div>`;
 
-    // Per-client missed revenue table
     html += `<div style="margin-bottom:20px">
       <div class="report-row report-row-header" style="grid-template-columns:2fr 1fr 1fr 1fr">
-        <span>Client</span><span>Last Traded</span><span>Avg Monthly Revenue</span><span>Missed This Month</span>
+        <span>Client</span><span>Last Traded</span><span>Avg Monthly Revenue</span><span>Est. Missed</span>
       </div>`;
     missedClients.forEach(p => {
       const lastStr = p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-      html += `<div class="report-row" style="grid-template-columns:2fr 1fr 1fr 1fr">
-        <span style="font-weight:600">${p.client}</span>
+      const safeClient = p.client.replace(/'/g,"\'");
+      html += `<div class="report-row" style="grid-template-columns:2fr 1fr 1fr 1fr;cursor:pointer" onclick="openDetail('${safeClient}')" title="Click to view full profile">
+        <span style="font-weight:600;color:var(--blue);text-decoration:underline;text-decoration-color:var(--blue-mid)">${p.client}</span>
         <span>${lastStr}</span>
         <span style="color:var(--green);font-weight:600">£${p.avgMonthlyRevenue.toFixed(2)}</span>
         <span style="color:var(--red);font-weight:700">−£${p.avgMonthlyRevenue.toFixed(2)}</span>
@@ -972,7 +1008,7 @@ function renderMonthlyReport() {
     });
     html += `</div>`;
   } else {
-    html += `<p style="font-size:13px;color:var(--text-dim);padding:10px 0 16px">All active clients traded this month — no missed revenue. ✓</p>`;
+    html += `<p style="font-size:13px;color:var(--text-dim);padding:10px 0 16px">No clients match this filter. ✓</p>`;
   }
 
   // ── At-risk clients section ────────────────────────────────────
@@ -981,13 +1017,14 @@ function renderMonthlyReport() {
 
   html += `<div class="detail-section-title" style="margin-bottom:10px;margin-top:4px">⚠ At-Risk & Watch Clients</div>`;
   if (atRisk.length) {
-    html += `<div class="report-row report-row-header"><span>Client</span><span>Status</span><span>Last Trade</span><span>Trades This Month</span></div>`;
+    html += `<div class="report-row report-row-header"><span>Client</span><span>Status</span><span>Last Trade</span><span>Trades in ${notTradedLabel.split(' ')[0]}</span></div>`;
     atRisk.forEach(p => {
       const mo = byClientThisMonth[p.client]||{count:0,total:0};
       const statusLabel = { red:'At Risk', amber:'Watch' }[p.status]||p.status;
       const statusColor = p.status==='red'?'var(--red)':'var(--amber)';
-      html += `<div class="report-row">
-        <span style="font-weight:600">${p.client}</span>
+      const safeClient  = p.client.replace(/'/g,"\'");
+      html += `<div class="report-row" style="cursor:pointer" onclick="openDetail('${safeClient}')" title="Click to view full profile">
+        <span style="font-weight:600;color:var(--blue);text-decoration:underline;text-decoration-color:var(--blue-mid)">${p.client}</span>
         <span style="color:${statusColor};font-weight:600">${statusLabel}</span>
         <span>${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short'})}</span>
         <span>${mo.count>0?mo.count+' trade'+(mo.count>1?'s':'')+(mo.total>0?' ('+formatAmount(mo.total)+')':''):'None'}</span>
@@ -998,16 +1035,16 @@ function renderMonthlyReport() {
   }
 
   // ── Monthly summary ────────────────────────────────────────────
-  const totalClients   = allProfileList.length;
-  const tradedThisMo   = Object.keys(byClientThisMonth).length;
-  const totalVolume    = monthTrades.reduce((s,t)=>s+(!isNaN(t.amount)&&t.amount>0?t.amount:0),0);
+  const totalClients = allProfileList.length;
+  const tradedThisMo = Object.keys(byClientThisMonth).length;
+  const totalVolume  = monthTrades.reduce((s,t)=>s+(!isNaN(t.amount)&&t.amount>0?t.amount:0),0);
 
   html += `<div class="report-summary" style="margin-top:20px">
-    <div class="report-summary-row"><span>Total clients</span><span>${totalClients}</span></div>
-    <div class="report-summary-row"><span>Traded this month</span><span>${tradedThisMo}</span></div>
-    <div class="report-summary-row"><span>Not traded this month</span><span style="color:var(--red)">${totalClients-tradedThisMo}</span></div>
-    <div class="report-summary-row"><span>Clients with missed revenue</span><span style="color:var(--red)">${missedClients.length}</span></div>
-    <div class="report-summary-row"><span>Total trades</span><span>${monthTrades.length}</span></div>
+    <div class="report-summary-row"><span>Total clients (filtered)</span><span>${totalClients}</span></div>
+    <div class="report-summary-row"><span>Traded in ${notTradedLabel}</span><span>${tradedThisMo}</span></div>
+    <div class="report-summary-row"><span>Not traded in ${notTradedLabel}</span><span style="color:var(--red)">${totalClients-tradedThisMo}</span></div>
+    <div class="report-summary-row"><span>Matched this filter</span><span style="color:var(--red)">${missedClients.length}</span></div>
+    <div class="report-summary-row"><span>Total trades in ${notTradedLabel}</span><span>${monthTrades.length}</span></div>
     ${totalVolume>0?`<div class="report-summary-row"><span>Total volume</span><span>${formatAmount(totalVolume)}</span></div>`:''}
     ${totalActualRevenue>0?`<div class="report-summary-row"><span>Revenue earned</span><span style="color:var(--green)">£${totalActualRevenue.toFixed(2)}</span></div>`:''}
     ${totalMissedRevenue>0?`<div class="report-summary-row"><span>Revenue missed</span><span style="color:var(--red)">−£${totalMissedRevenue.toFixed(2)}</span></div>`:''}
