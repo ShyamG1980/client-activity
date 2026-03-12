@@ -254,6 +254,11 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
     </div>
 
     <div class="filters">
+      <select class="filter-select" id="filterAccountType" onchange="renderDashboard()">
+        <option value="">All account types</option>
+        <option value="corporate">Corporate</option>
+        <option value="private">Private</option>
+      </select>
       <select class="filter-select" id="filterStatus" onchange="renderDashboard()">
         <option value="">All statuses</option>
         <option value="red">At Risk</option>
@@ -339,14 +344,15 @@ const LOOKBACK_MONTHS = 6;
 
 let allTrades = [];
 let rawData = [], columns = [];
-let mapping = { client:'', date:'', amount:'', pair:'', trader:'' };
+let mapping = { client:'', date:'', amount:'', pair:'', trader:'', accountType:'' };
 
 const FIELD_DEFS = [
-  { key:'client', label:'Client Name *',       required:true,  hints:['client','customer','account','company','name'] },
-  { key:'date',   label:'Trade Date *',         required:true,  hints:['date','tradedate','trade date','time','timestamp','booking'] },
-  { key:'amount', label:'Notional / Amount *',  required:true,  hints:['notional','amount','volume','size','qty','quantity','value'] },
-  { key:'pair',   label:'Currency Pair',        required:false, hints:['pair','ccy','currency','instrument','symbol','product'] },
-  { key:'trader', label:'Trader / Sales',       required:false, hints:['trader','sales','dealer','broker','user'] },
+  { key:'client',      label:'Client Name *',       required:true,  hints:['client','customer','account','company','name'] },
+  { key:'date',        label:'Trade Date *',         required:true,  hints:['date','tradedate','trade date','time','timestamp','booking'] },
+  { key:'amount',      label:'Notional / Amount *',  required:true,  hints:['notional','amount','volume','size','qty','quantity','value'] },
+  { key:'pair',        label:'Currency Pair',        required:false, hints:['pair','ccy','currency','instrument','symbol','product'] },
+  { key:'trader',      label:'Trader / Sales',       required:false, hints:['trader','sales','dealer','broker','user'] },
+  { key:'accountType', label:'Account Type',         required:false, hints:['accounttype','account type','type','category','segment'] },
 ];
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -454,11 +460,12 @@ function resetUpload() {
 // ── Process uploaded data ─────────────────────────────────────────
 function processAndStore() {
   const newTrades = rawData.map(r => ({
-    client: String(r[mapping.client]||'').trim(),
-    date:   mapping.date   ? String(r[mapping.date]||'').trim() : '',
-    amount: mapping.amount ? parseFloat(String(r[mapping.amount]||'').replace(/[,\s£$€]/g,'')) : null,
-    pair:   mapping.pair   ? String(r[mapping.pair]||'').trim().toUpperCase() : '',
-    trader: mapping.trader ? String(r[mapping.trader]||'').trim() : '',
+    client:      String(r[mapping.client]||'').trim(),
+    date:        mapping.date        ? String(r[mapping.date]||'').trim() : '',
+    amount:      mapping.amount      ? parseFloat(String(r[mapping.amount]||'').replace(/[,\s£$€]/g,'')) : null,
+    pair:        mapping.pair        ? String(r[mapping.pair]||'').trim().toUpperCase() : '',
+    trader:      mapping.trader      ? String(r[mapping.trader]||'').trim() : '',
+    accountType: mapping.accountType ? String(r[mapping.accountType]||'').trim() : '',
   })).filter(r => r.client && parseDate(r.date));
 
   if (!newTrades.length) { alert('No valid rows found. Check your column mapping.'); return; }
@@ -608,6 +615,7 @@ function buildClientProfiles() {
       if (alerts.length >= 2 && status === 'amber') status = 'red';
     }
 
+    const accountType = trades[trades.length-1].accountType || '';
     profiles[client] = {
       client, status, alerts,
       lastDate, daysSince,
@@ -618,6 +626,7 @@ function buildClientProfiles() {
       currentMonth,
       allByMonth,
       trades,
+      accountType,
     };
   });
 
@@ -637,12 +646,14 @@ function renderDashboard() {
   document.getElementById('statGreen').textContent = all.filter(p=>p.status==='green').length;
 
   // Filters
-  const filterStatus = document.getElementById('filterStatus').value;
-  const search = document.getElementById('searchClient').value.toLowerCase();
+  const filterStatus      = document.getElementById('filterStatus').value;
+  const filterAccountType = document.getElementById('filterAccountType').value;
+  const search            = document.getElementById('searchClient').value.toLowerCase();
 
   let filtered = all;
-  if (filterStatus) filtered = filtered.filter(p => p.status === filterStatus);
-  if (search) filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
+  if (filterAccountType) filtered = filtered.filter(p => p.accountType && p.accountType.toLowerCase() === filterAccountType);
+  if (filterStatus)      filtered = filtered.filter(p => p.status === filterStatus);
+  if (search)            filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
 
   // Sort: red first, then amber, then green, then grey
   const order = { red:0, amber:1, green:2, grey:3 };
@@ -668,6 +679,7 @@ function renderDashboard() {
     return `<div class="client-card status-${p.status}" onclick="openDetail('${p.client.replace(/'/g,"\\'")}')">
       <div class="client-name">${p.client}</div>
       <span class="client-status-badge ${badgeClass[p.status]}">${statusLabel[p.status]}</span>
+      ${p.accountType ? `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${p.accountType}</div>` : ""}
       <div class="client-meta">Last trade: <strong>${lastDateStr}</strong> (${p.daysSince}d ago)</div>
       <div class="client-meta">Avg trades/month: <strong>${p.avgCount}</strong>${amtStr?' · '+amtStr:''}</div>
       <div class="client-alerts">${alertHtml}</div>
