@@ -304,6 +304,14 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
           <option value="9">October</option><option value="10">November</option><option value="11">December</option>
         </select>
         <select id="reportYear" onchange="renderMonthlyReport()" class="filter-select"></select>
+        <select id="reportFilterAccountType" onchange="renderMonthlyReport()" class="filter-select">
+          <option value="">All account types</option>
+          <option value="corporate">Corporate</option>
+          <option value="private">Private</option>
+        </select>
+        <select id="reportFilterBookedBy" onchange="renderMonthlyReport()" class="filter-select">
+          <option value="">All brokers</option>
+        </select>
         <button onclick="exportMonthlyReport()" class="btn btn-secondary" style="padding:8px 14px;font-size:13px">↓ Export CSV</button>
       </div>
       <div id="reportContent"></div>
@@ -875,8 +883,21 @@ function renderMonthlyReport() {
   const prevMK1 = monthKey(new Date(year, month-1, 1));
   const prevMK2 = monthKey(new Date(year, month-2, 1));
 
+  const reportFilterAT = document.getElementById('reportFilterAccountType').value;
+  const reportFilterBB = document.getElementById('reportFilterBookedBy').value;
+
   const profiles = buildClientProfiles();
-  const allProfileList = Object.values(profiles);
+
+  // Populate broker dropdown
+  const reportBrokerSel = document.getElementById('reportFilterBookedBy');
+  const currentBrokerVal = reportBrokerSel.value;
+  const allBrokers = [...new Set(Object.values(profiles).map(p=>p.bookedBy).filter(Boolean))].sort();
+  reportBrokerSel.innerHTML = '<option value="">All brokers</option>' +
+    allBrokers.map(b=>`<option value="${b}" ${b===currentBrokerVal?'selected':''}>${b}</option>`).join('');
+
+  let allProfileList = Object.values(profiles);
+  if (reportFilterAT) allProfileList = allProfileList.filter(p => p.accountType && p.accountType.toLowerCase() === reportFilterAT);
+  if (reportFilterBB) allProfileList = allProfileList.filter(p => p.bookedBy === reportFilterBB);
 
   // Trades in selected month
   const monthTrades = allTrades.filter(t => {
