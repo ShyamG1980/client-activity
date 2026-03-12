@@ -696,12 +696,14 @@ function renderDashboard() {
   bookedBySel.innerHTML = '<option value="">All brokers</option>' +
     brokers.map(b => `<option value="${b}" ${b===currentBrokerVal?'selected':''}>${b}</option>`).join('');
 
-  // Populate last traded dropdown from actual data
+  // Populate last traded dropdown — all months across entire trade history
   const lastTradedSel = document.getElementById('filterLastTraded');
   const currentVal = lastTradedSel.value;
-  const monthKeys = [...new Set(all.map(p => monthKey(p.lastDate)))].sort().reverse();
+  const allMonthKeys = [...new Set(allTrades.map(t => {
+    const d = parseDate(t.date); return d ? monthKey(d) : null;
+  }).filter(Boolean))].sort().reverse();
   lastTradedSel.innerHTML = '<option value="">Last traded — any</option>' +
-    monthKeys.map(mk => {
+    allMonthKeys.map(mk => {
       const [y,m] = mk.split('-');
       const label = new Date(+y, +m-1, 1).toLocaleString('en-GB',{month:'long',year:'numeric'});
       return `<option value="${mk}" ${mk===currentVal?'selected':''}>${label}</option>`;
