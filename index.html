@@ -948,9 +948,11 @@ function renderMonthlyReport() {
     const tradedNotMonth = byClientThisMonth[p.client] && byClientThisMonth[p.client].count > 0;
     if (tradedNotMonth) return false;
     if (hasTradedInFilter) {
+      // Exact match only — must have traded in the specified month
       return p.allByMonth[tradedInMK] && p.allByMonth[tradedInMK].count > 0;
     } else {
-      return (p.revenueByMonth[prevMK1]>0) || (p.revenueByMonth[prevMK2]>0);
+      // No "traded in" filter set — show all who haven't traded this month
+      return true;
     }
   }).sort((a,b) => b.avgMonthlyRevenue - a.avgMonthlyRevenue);
 
