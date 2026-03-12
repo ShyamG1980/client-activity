@@ -259,6 +259,9 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
         <option value="corporate">Corporate</option>
         <option value="private">Private</option>
       </select>
+      <select class="filter-select" id="filterLastTraded" onchange="renderDashboard()">
+        <option value="">Last traded — any</option>
+      </select>
       <select class="filter-select" id="filterStatus" onchange="renderDashboard()">
         <option value="">All statuses</option>
         <option value="red">At Risk</option>
@@ -651,10 +654,23 @@ function renderDashboard() {
   // Filters
   const filterStatus      = document.getElementById('filterStatus').value;
   const filterAccountType = document.getElementById('filterAccountType').value;
+  const filterLastTraded  = document.getElementById('filterLastTraded').value;
   const search            = document.getElementById('searchClient').value.toLowerCase();
+
+  // Populate last traded dropdown from actual data
+  const lastTradedSel = document.getElementById('filterLastTraded');
+  const currentVal = lastTradedSel.value;
+  const monthKeys = [...new Set(all.map(p => monthKey(p.lastDate)))].sort().reverse();
+  lastTradedSel.innerHTML = '<option value="">Last traded — any</option>' +
+    monthKeys.map(mk => {
+      const [y,m] = mk.split('-');
+      const label = new Date(+y, +m-1, 1).toLocaleString('en-GB',{month:'long',year:'numeric'});
+      return `<option value="${mk}" ${mk===currentVal?'selected':''}>${label}</option>`;
+    }).join('');
 
   let filtered = all;
   if (filterAccountType) filtered = filtered.filter(p => p.accountType && p.accountType.toLowerCase() === filterAccountType);
+  if (filterLastTraded)  filtered = filtered.filter(p => monthKey(p.lastDate) === filterLastTraded);
   if (filterStatus)      filtered = filtered.filter(p => p.status === filterStatus);
   if (search)            filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
 
