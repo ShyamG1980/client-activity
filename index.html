@@ -174,6 +174,14 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
 .empty-state { text-align:center; padding:40px 20px; color:var(--text-dim); }
 .empty-state p { font-size:14px; margin-top:8px; }
 
+.client-select-item{display:flex;align-items:flex-start;gap:10px;padding:10px 12px;border:1.5px solid var(--border);border-radius:7px;margin-bottom:8px;cursor:pointer;transition:background 0.12s;}
+.client-select-item:hover{background:var(--blue-light);}
+.client-select-item.checked{background:var(--blue-light);border-color:var(--blue-mid);}
+.client-select-item input[type=checkbox]{width:16px;height:16px;margin-top:2px;flex-shrink:0;cursor:pointer;accent-color:var(--blue);}
+.client-select-name{font-size:13px;font-weight:600;color:var(--text);margin-bottom:3px;}
+.client-select-detail{font-size:11px;color:var(--text-mid);}
+.status-dot-red{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:5px;}
+.status-dot-amber{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:5px;}
 .hidden { display:none !important; }
 .note { font-size:12px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
 </style>
@@ -313,6 +321,22 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
 </div>
 
 <!-- Email modal -->
+<!-- Client selection modal -->
+<div class="email-modal" id="selectModal">
+  <div class="email-box" style="max-width:560px">
+    <h3>Select Clients to Include
+      <button onclick="closeSelectModal()" style="background:none;border:none;font-size:20px;color:var(--text-dim);cursor:pointer">✕</button>
+    </h3>
+    <p style="font-size:12px;color:var(--text-mid);margin-bottom:14px">Tick the clients you want to include in the email, then tap Continue.</p>
+    <div id="clientSelectList" style="max-height:360px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button onclick="selectAllClients()" style="background:none;border:1px solid var(--border);color:var(--text-mid);padding:6px 12px;border-radius:5px;font-family:var(--font);font-size:11px;cursor:pointer;font-weight:500">Select All</button>
+      <button onclick="selectNoneClients()" style="background:none;border:1px solid var(--border);color:var(--text-mid);padding:6px 12px;border-radius:5px;font-family:var(--font);font-size:11px;cursor:pointer;font-weight:500">Clear</button>
+    </div>
+    <button class="send-btn" onclick="proceedToEmail()" style="width:100%;justify-content:center;padding:12px">Continue to Email →</button>
+  </div>
+</div>
+
 <div class="email-modal" id="emailModal">
   <div class="email-box">
     <h3>✉ At-Risk Client Summary
@@ -331,6 +355,7 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
       <textarea id="emailBody"></textarea>
     </div>
     <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="send-btn" style="background:var(--bg);color:var(--text-mid);border:1.5px solid var(--border)" onclick="closeEmailModal();openSelectModal()">← Back</button>
       <button class="send-btn" onclick="sendEmail()">✉ Open in Outlook</button>
       <button class="btn btn-secondary" onclick="closeEmailModal()">Cancel</button>
     </div>
@@ -877,21 +902,84 @@ function exportMonthlyReport() {
 }
 
 // ── Email at-risk summary ─────────────────────────────────────────
-function openEmailModal() {
+function openEmailModal() { openSelectModal(); }
+
+function openSelectModal() {
   const profiles = buildClientProfiles();
-  const atRisk = Object.values(profiles).filter(p=>p.status==='red'||p.status==='amber').sort((a,b)=>{const o={red:0,amber:1};return (o[a.status]||2)-(o[b.status]||2);});
+  const atRisk = Object.values(profiles)
+    .filter(p => p.status==='red' || p.status==='amber')
+    .sort((a,b) => { const o={red:0,amber:1}; return (o[a.status]||2)-(o[b.status]||2) || a.client.localeCompare(b.client); });
+
   if (!atRisk.length) { alert('No at-risk clients to report.'); return; }
 
+  const list = document.getElementById('clientSelectList');
+  list.innerHTML = atRisk.map((p, i) => {
+    const dotClass = p.status==='red' ? 'status-dot-red' : 'status-dot-amber';
+    const statusLabel = p.status==='red' ? 'At Risk' : 'Watch';
+    const alertText = p.alerts.map(a=>a.msg).join(' · ');
+    const lastDateStr = p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    return `<div class="client-select-item checked" id="csi-${i}" onclick="toggleClient(${i}, this)">
+      <input type="checkbox" checked id="csc-${i}" onclick="event.stopPropagation();toggleClient(${i},document.getElementById('csi-${i}'))">
+      <div style="flex:1">
+        <div class="client-select-name"><span class="${dotClass}"></span>${p.client}${p.accountType?' <span style=\"font-size:10px;color:var(--text-dim);font-weight:400\">('+p.accountType+')</span>':''}</div>
+        <div class="client-select-detail">Last traded: ${lastDateStr} · ${statusLabel}${alertText?' · '+alertText:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('selectModal').classList.add('show');
+}
+
+function toggleClient(i, el) {
+  const cb = document.getElementById('csc-'+i);
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+}
+
+function selectAllClients() {
+  document.querySelectorAll('#clientSelectList .client-select-item').forEach((el,i) => {
+    document.getElementById('csc-'+i).checked = true;
+    el.classList.add('checked');
+  });
+}
+
+function selectNoneClients() {
+  document.querySelectorAll('#clientSelectList .client-select-item').forEach((el,i) => {
+    document.getElementById('csc-'+i).checked = false;
+    el.classList.remove('checked');
+  });
+}
+
+function closeSelectModal() { document.getElementById('selectModal').classList.remove('show'); }
+
+function proceedToEmail() {
+  const profiles = buildClientProfiles();
+  const atRisk = Object.values(profiles)
+    .filter(p => p.status==='red' || p.status==='amber')
+    .sort((a,b) => { const o={red:0,amber:1}; return (o[a.status]||2)-(o[b.status]||2) || a.client.localeCompare(b.client); });
+
+  const selected = atRisk.filter((p,i) => {
+    const cb = document.getElementById('csc-'+i);
+    return cb && cb.checked;
+  });
+
+  if (!selected.length) { alert('Please select at least one client.'); return; }
+
+  closeSelectModal();
+
   const now = new Date();
-  const lines = atRisk.map(p => {
-    const label = p.status==='red'?'AT RISK':'WATCH';
+  const lines = selected.map(p => {
+    const label = p.status==='red' ? 'AT RISK' : 'WATCH';
     const alertText = p.alerts.map(a=>a.msg).join(', ');
     return `  • [${label}] ${p.client} — Last traded: ${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} (${p.daysSince}d ago)${alertText?' — '+alertText:''}`;
   }).join('\n');
 
-  document.getElementById('emailTo').value = localStorage.getItem(STORE_EMAIL)||'';
-  document.getElementById('emailSubject').value = `C4U Client Activity Alert — ${atRisk.filter(p=>p.status==='red').length} At-Risk, ${atRisk.filter(p=>p.status==='amber').length} Watch — ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-  document.getElementById('emailBody').value = `Hi,
+  const redCount   = selected.filter(p=>p.status==='red').length;
+  const amberCount = selected.filter(p=>p.status==='amber').length;
+
+  document.getElementById('emailTo').value      = localStorage.getItem(STORE_EMAIL)||'';
+  document.getElementById('emailSubject').value = `C4U Client Activity Alert — ${redCount} At-Risk, ${amberCount} Watch — ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  document.getElementById('emailBody').value    = `Hi,
 
 Please find below the latest client activity summary as of ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'})}:
 
