@@ -375,7 +375,7 @@ const LOOKBACK_MONTHS = 6;
 
 let allTrades = [];
 let rawData = [], columns = [];
-let mapping = { client:'', date:'', amount:'', pair:'', trader:'', accountType:'', bookedBy:'' };
+let mapping = { client:'', date:'', amount:'', pair:'', trader:'', accountType:'', bookedBy:'', spread:'' };
 
 const FIELD_DEFS = [
   { key:'client',      label:'Client Name *',       required:true,  hints:['client','customer','account','company','name'] },
@@ -385,6 +385,7 @@ const FIELD_DEFS = [
   { key:'trader',      label:'Trader / Sales',       required:false, hints:['trader','sales','dealer','broker','user'] },
   { key:'accountType', label:'Account Type',         required:false, hints:['accounttype','account type','type','category','segment'] },
   { key:'bookedBy',    label:'Booked By / Broker',  required:false, hints:['bookedby','booked by','broker','trader','sales','dealer','user','assigned'] },
+  { key:'spread',      label:'Spread %',             required:false, hints:['spread','margin','rate','pip','markup'] },
 ];
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -499,6 +500,7 @@ function processAndStore() {
     trader:      mapping.trader      ? String(r[mapping.trader]||'').trim() : '',
     accountType: mapping.accountType ? String(r[mapping.accountType]||'').trim() : '',
     bookedBy:    mapping.bookedBy    ? String(r[mapping.bookedBy]||'').trim() : '',
+    spread:      mapping.spread      ? parseFloat(String(r[mapping.spread]||'').replace(/[%,\s]/g,'')) : null,
   })).filter(r => r.client && parseDate(r.date));
 
   if (!newTrades.length) { alert('No valid rows found. Check your column mapping.'); return; }
@@ -652,6 +654,23 @@ function buildClientProfiles() {
     }
 
     const accountType = trades[trades.length-1].accountType || '';
+
+    // Revenue calculation — spread% * notional per trade
+    const tradesWithRevenue = trades.filter(t => !isNaN(t.spread) && t.spread > 0 && !isNaN(t.amount) && t.amount > 0);
+    const revenueByMonth = {};
+    tradesWithRevenue.forEach(t => {
+      const mk = monthKey(t._date);
+      if (!revenueByMonth[mk]) revenueByMonth[mk] = 0;
+      revenueByMonth[mk] += (t.spread / 100) * t.amount;
+    });
+    const revenueMonths = Object.entries(revenueByMonth).filter(([mk]) => mk !== currentMonthKey);
+    const avgMonthlyRevenue = revenueMonths.length
+      ? revenueMonths.reduce((s,[,v]) => s+v, 0) / revenueMonths.length
+      : 0;
+    // Missed revenue = avg monthly revenue × months not traded (up to last 2 completed months)
+    const prevMonth2Key = monthKey(new Date(now.getFullYear(), now.getMonth()-2, 1));
+    const missedMonths = [prevMonth2Key, prevMonthKey].filter(mk => !(revenueByMonth[mk] > 0));
+    const missedRevenue = avgMonthlyRevenue * missedMonths.length;
     const bookedBy    = trades[trades.length-1].bookedBy    || '';
     profiles[client] = {
       client, status, alerts,
@@ -665,6 +684,9 @@ function buildClientProfiles() {
       trades,
       accountType,
       bookedBy,
+      avgMonthlyRevenue,
+      missedRevenue,
+      revenueByMonth,
     };
   });
 
@@ -812,6 +834,16 @@ function openDetail(client) {
       <div class="detail-row"><span>Last trade date</span><span>${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
       <div class="detail-row"><span>Days since last trade</span><span>${p.daysSince} days</span></div>
     </div>
+
+    ${p.avgMonthlyRevenue > 0 ? `<div class="detail-section">
+      <div class="detail-section-title">Revenue Impact</div>
+      <div class="detail-row"><span>Avg monthly revenue</span><span style="color:var(--green);font-weight:700">£${p.avgMonthlyRevenue.toFixed(2)}</span></div>
+      ${p.missedRevenue > 0 ? `
+      <div class="detail-row"><span>Estimated missed revenue</span><span style="color:var(--red);font-weight:700">−£${p.missedRevenue.toFixed(2)}</span></div>
+      <div style="background:var(--red-bg);border:1px solid rgba(220,38,38,0.2);border-radius:7px;padding:12px;margin-top:10px;font-size:12px;color:var(--red);line-height:1.6">
+        Based on ${p.missedRevenue > p.avgMonthlyRevenue ? 'the last 2 months' : 'last month'} of inactivity vs this client's average monthly revenue of £${p.avgMonthlyRevenue.toFixed(2)}.
+      </div>` : `<div style="font-size:12px;color:var(--text-dim);margin-top:6px">No missed revenue — client traded recently.</div>`}
+    </div>` : ''}
 
     ${recentTrades.length ? `<div class="detail-section">
       <div class="detail-section-title">Recent Trades</div>
