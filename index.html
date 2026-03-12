@@ -591,9 +591,12 @@ function buildClientProfiles() {
       status = 'grey';
       alerts.push({ type:'dormant', msg:`No trades in ${Math.floor(daysSince/30)} months` });
     } else {
-      // Not traded this month (but usually does and it's past 7th of month)
-      if (now.getDate() > 7 && avgCount > 0 && currentMonth.count === 0) {
-        alerts.push({ type:'missing', msg:'Not traded this month' });
+      // Not traded this month — only flag once the month has fully ended
+      const isMonthComplete = now.getMonth() !== new Date(now.getFullYear(), now.getMonth(), 1).getMonth()
+        || now >= new Date(now.getFullYear(), now.getMonth()+1, 0); // last day of month
+      const prevMonthComplete = true; // previous month is always complete
+      if (prevMonthComplete && avgCount > 0 && prevMonth_.count === 0 && currentMonth.count === 0) {
+        alerts.push({ type:'missing', msg:'Did not trade last month' });
         if (status === 'green') status = 'red';
       }
 
