@@ -902,8 +902,9 @@ function renderMonthlyReport() {
   const tradedInYearVal  = document.getElementById('tradedInYear').value;
   const hasTradedInFilter = tradedInMonthVal !== '' && tradedInYearVal !== '';
   const tradedInMK = hasTradedInFilter
-    ? `${tradedInYearVal}-${String(parseInt(tradedInMonthVal)+1).padStart(2,'0')}`
+    ? monthKey(new Date(parseInt(tradedInYearVal), parseInt(tradedInMonthVal), 1))
     : null;
+  console.log('Filter: not traded in', selMonthKey, '| but traded in', tradedInMK);
   const tradedInLabel = hasTradedInFilter
     ? new Date(parseInt(tradedInYearVal), parseInt(tradedInMonthVal), 1).toLocaleString('en-GB',{month:'long',year:'numeric'})
     : null;
@@ -945,13 +946,18 @@ function renderMonthlyReport() {
 
   // Clients who traded in the specified "traded in" month but NOT in "not traded in" month
   const missedClients = allProfileList.filter(p => {
+    // Must NOT have traded in the "not traded in" month
     const tradedNotMonth = byClientThisMonth[p.client] && byClientThisMonth[p.client].count > 0;
     if (tradedNotMonth) return false;
     if (hasTradedInFilter) {
-      // Exact match only — must have traded in the specified month
-      return p.allByMonth[tradedInMK] && p.allByMonth[tradedInMK].count > 0;
+      // Must have traded in the EXACT "but traded in" month specified — no other months count
+      const tradedInThisMonth = p.allByMonth[tradedInMK] && p.allByMonth[tradedInMK].count > 0;
+      if (!tradedInThisMonth) return false;
+      // Also must NOT have traded in any month between tradedInMK and selMonthKey
+      // (i.e. they traded in Sep, skipped Oct — not that they traded later and we're looking back)
+      return true;
     } else {
-      // No "traded in" filter set — show all who haven't traded this month
+      // No "traded in" filter — show all who haven't traded this month
       return true;
     }
   }).sort((a,b) => b.avgMonthlyRevenue - a.avgMonthlyRevenue);
