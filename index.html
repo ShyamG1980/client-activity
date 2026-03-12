@@ -267,6 +267,9 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
         <option value="corporate">Corporate</option>
         <option value="private">Private</option>
       </select>
+      <select class="filter-select" id="filterBookedBy" onchange="renderDashboard()">
+        <option value="">All brokers</option>
+      </select>
       <select class="filter-select" id="filterLastTraded" onchange="renderDashboard()">
         <option value="">Last traded — any</option>
       </select>
@@ -372,7 +375,7 @@ const LOOKBACK_MONTHS = 6;
 
 let allTrades = [];
 let rawData = [], columns = [];
-let mapping = { client:'', date:'', amount:'', pair:'', trader:'', accountType:'' };
+let mapping = { client:'', date:'', amount:'', pair:'', trader:'', accountType:'', bookedBy:'' };
 
 const FIELD_DEFS = [
   { key:'client',      label:'Client Name *',       required:true,  hints:['client','customer','account','company','name'] },
@@ -381,6 +384,7 @@ const FIELD_DEFS = [
   { key:'pair',        label:'Currency Pair',        required:false, hints:['pair','ccy','currency','instrument','symbol','product'] },
   { key:'trader',      label:'Trader / Sales',       required:false, hints:['trader','sales','dealer','broker','user'] },
   { key:'accountType', label:'Account Type',         required:false, hints:['accounttype','account type','type','category','segment'] },
+  { key:'bookedBy',    label:'Booked By / Broker',  required:false, hints:['bookedby','booked by','broker','trader','sales','dealer','user','assigned'] },
 ];
 
 // ── Init ──────────────────────────────────────────────────────────
@@ -494,6 +498,7 @@ function processAndStore() {
     pair:        mapping.pair        ? String(r[mapping.pair]||'').trim().toUpperCase() : '',
     trader:      mapping.trader      ? String(r[mapping.trader]||'').trim() : '',
     accountType: mapping.accountType ? String(r[mapping.accountType]||'').trim() : '',
+    bookedBy:    mapping.bookedBy    ? String(r[mapping.bookedBy]||'').trim() : '',
   })).filter(r => r.client && parseDate(r.date));
 
   if (!newTrades.length) { alert('No valid rows found. Check your column mapping.'); return; }
@@ -647,6 +652,7 @@ function buildClientProfiles() {
     }
 
     const accountType = trades[trades.length-1].accountType || '';
+    const bookedBy    = trades[trades.length-1].bookedBy    || '';
     profiles[client] = {
       client, status, alerts,
       lastDate, daysSince,
@@ -658,6 +664,7 @@ function buildClientProfiles() {
       allByMonth,
       trades,
       accountType,
+      bookedBy,
     };
   });
 
@@ -682,6 +689,13 @@ function renderDashboard() {
   const filterLastTraded  = document.getElementById('filterLastTraded').value;
   const search            = document.getElementById('searchClient').value.toLowerCase();
 
+  // Populate broker dropdown from actual data
+  const bookedBySel = document.getElementById('filterBookedBy');
+  const currentBrokerVal = bookedBySel.value;
+  const brokers = [...new Set(all.map(p => p.bookedBy).filter(Boolean))].sort();
+  bookedBySel.innerHTML = '<option value="">All brokers</option>' +
+    brokers.map(b => `<option value="${b}" ${b===currentBrokerVal?'selected':''}>${b}</option>`).join('');
+
   // Populate last traded dropdown from actual data
   const lastTradedSel = document.getElementById('filterLastTraded');
   const currentVal = lastTradedSel.value;
@@ -694,7 +708,9 @@ function renderDashboard() {
     }).join('');
 
   let filtered = all;
+  const filterBookedBy = document.getElementById('filterBookedBy').value;
   if (filterAccountType) filtered = filtered.filter(p => p.accountType && p.accountType.toLowerCase() === filterAccountType);
+  if (filterBookedBy)    filtered = filtered.filter(p => p.bookedBy === filterBookedBy);
   if (filterLastTraded)  filtered = filtered.filter(p => monthKey(p.lastDate) === filterLastTraded);
   if (filterStatus)      filtered = filtered.filter(p => p.status === filterStatus);
   if (search)            filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
@@ -723,7 +739,7 @@ function renderDashboard() {
     return `<div class="client-card status-${p.status}" onclick="openDetail('${p.client.replace(/'/g,"\\'")}')">
       <div class="client-name">${p.client}</div>
       <span class="client-status-badge ${badgeClass[p.status]}">${statusLabel[p.status]}</span>
-      ${p.accountType ? `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${p.accountType}</div>` : ""}
+      ${p.accountType||p.bookedBy ? `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${[p.accountType,p.bookedBy].filter(Boolean).join(' · ')}</div>` : ""}
       <div class="client-meta">Last trade: <strong>${lastDateStr}</strong> (${p.daysSince}d ago)</div>
       <div class="client-meta">Avg trades/month: <strong>${p.avgCount}</strong>${amtStr?' · '+amtStr:''}</div>
       <div class="client-alerts">${alertHtml}</div>
