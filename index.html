@@ -1458,28 +1458,30 @@ function proceedToDueEmail() {
     const lastStr = d.lastTrade.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
     const confStr = { high:'High', medium:'Medium', low:'Low' }[d.pattern.confidence];
     return `  • ${d.client} — ${expectedStr} (trades every ~${d.pattern.avgGap} days, last traded ${lastStr}) [${confStr} confidence]`;
-  }).join('
-');
+  }).join('\n');
 
   document.getElementById('dueEmailTo').value = localStorage.getItem(STORE_EMAIL)||'';
   document.getElementById('dueEmailSubject').value = `C4U — Clients Due to Trade This Week — ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
-  document.getElementById('dueEmailBody').value = `Hi,
-
-Please find below a list of clients predicted to trade this week based on their historical trading patterns. Please reach out proactively before they come to us or go elsewhere.
-
-${lines}
-
-Confidence levels are based on how consistent each client's trading pattern is — High confidence clients have very regular trading intervals.
-
-Please prioritise reaching out to High and Medium confidence clients first.
-
-Warm Regards,
-
-Shyam S. Gokani Head of Trading | www.currencies4you.com
-
-T: +44 (0) 1322 319550 M: +44 (0) 7534 285661 E: shyam.gokani@currencies4you.com A: Currencies 4 You, Regus House, Victory Way, Admirals Park, Crossway Dartford, DA2 6QD
-
-This email and any attachments may be confidential and/or legally privileged. If you have received this email and you are not a named addressee, please inform the sender by return email and delete both emails. Currencies 4 You is a company registered in England and Wales (registered no. 06866898).`;
+  const dueBody = [
+    'Hi,',
+    '',
+    'Please find below a list of clients predicted to trade this week based on their historical trading patterns. Please reach out proactively before they come to us or go elsewhere.',
+    '',
+    lines,
+    '',
+    'Confidence levels are based on how consistent each client\'s trading pattern is — High confidence clients have very regular trading intervals.',
+    '',
+    'Please prioritise reaching out to High and Medium confidence clients first.',
+    '',
+    'Warm Regards,',
+    '',
+    'Shyam S. Gokani Head of Trading | www.currencies4you.com',
+    '',
+    'T: +44 (0) 1322 319550 M: +44 (0) 7534 285661 E: shyam.gokani@currencies4you.com A: Currencies 4 You, Regus House, Victory Way, Admirals Park, Crossway Dartford, DA2 6QD',
+    '',
+    'This email and any attachments may be confidential and/or legally privileged. If you have received this email and you are not a named addressee, please inform the sender by return email and delete both emails. Currencies 4 You is a company registered in England and Wales (registered no. 06866898).'
+  ].join('\n');
+  document.getElementById('dueEmailBody').value = dueBody;
 
   document.getElementById('dueEmailModal').classList.add('show');
 }
