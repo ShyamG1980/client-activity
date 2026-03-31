@@ -182,6 +182,12 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
 .client-select-detail{font-size:11px;color:var(--text-mid);}
 .status-dot-red{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--red);margin-right:5px;}
 .status-dot-amber{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--amber);margin-right:5px;}
+.badge-high   { background:#dcfce7;color:#16a34a;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px; }
+.badge-medium { background:#fef3c7;color:#d97706;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px; }
+.badge-low    { background:#f3f4f6;color:#6b7280;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.4px; }
+.due-card { background:var(--white);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:10px;box-shadow:var(--shadow-sm);cursor:pointer;transition:all 0.15s;display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;align-items:center; }
+.due-card:hover { box-shadow:var(--shadow);border-color:var(--blue-mid);transform:translateY(-1px); }
+.due-card-header { display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:8px;padding:6px 16px;font-size:11px;font-weight:700;color:var(--text-mid);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px; }
 .hidden { display:none !important; }
 .note { font-size:12px; color:var(--text-dim); margin-top:8px; line-height:1.5; }
 </style>
@@ -200,6 +206,7 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
   <div class="tab active" id="tab-upload" onclick="switchTab('upload')">Upload Data</div>
   <div class="tab" id="tab-dashboard" onclick="switchTab('dashboard')">Dashboard</div>
   <div class="tab" id="tab-report" onclick="switchTab('report')">Monthly Report</div>
+  <div class="tab" id="tab-due" onclick="switchTab('due')">⏰ Due This Week</div>
 </div>
 
 <div class="content">
@@ -330,6 +337,72 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
     </div>
   </div>
 
+  <!-- Due This Week tab -->
+  <div class="tab-panel" id="panel-due">
+    <div class="card">
+      <div class="card-title">Clients Due to Trade This Week</div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:18px;flex-wrap:wrap">
+        <select id="dueFilterAccountType" onchange="renderDueThisWeek()" class="filter-select">
+          <option value="">All account types</option>
+          <option value="corporate">Corporate</option>
+          <option value="private">Private</option>
+        </select>
+        <select id="dueFilterBookedBy" onchange="renderDueThisWeek()" class="filter-select">
+          <option value="">All brokers</option>
+        </select>
+        <select id="dueFilterConfidence" onchange="renderDueThisWeek()" class="filter-select">
+          <option value="">All confidence levels</option>
+          <option value="high">High confidence</option>
+          <option value="medium">Medium confidence</option>
+          <option value="low">Low confidence</option>
+        </select>
+        <button onclick="openDueEmailModal()" class="btn btn-primary" style="padding:8px 16px;font-size:13px">✉ Email Brokers</button>
+      </div>
+      <div id="dueContent"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Due This Week email modal -->
+<div class="email-modal" id="dueSelectModal">
+  <div class="email-box" style="max-width:560px">
+    <h3>Select Clients to Include
+      <button onclick="document.getElementById('dueSelectModal').classList.remove('show')" style="background:none;border:none;font-size:20px;color:var(--text-dim);cursor:pointer">✕</button>
+    </h3>
+    <p style="font-size:12px;color:var(--text-mid);margin-bottom:14px">Select clients to include in the broker email.</p>
+    <div id="dueClientSelectList" style="max-height:360px;overflow-y:auto;margin-bottom:14px"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px">
+      <button onclick="document.querySelectorAll('#dueClientSelectList .client-select-item').forEach((el,i)=>{document.getElementById('dcsc-'+i).checked=true;el.classList.add('checked')})" style="background:none;border:1px solid var(--border);color:var(--text-mid);padding:6px 12px;border-radius:5px;font-family:var(--font);font-size:11px;cursor:pointer;font-weight:500">Select All</button>
+      <button onclick="document.querySelectorAll('#dueClientSelectList .client-select-item').forEach((el,i)=>{document.getElementById('dcsc-'+i).checked=false;el.classList.remove('checked')})" style="background:none;border:1px solid var(--border);color:var(--text-mid);padding:6px 12px;border-radius:5px;font-family:var(--font);font-size:11px;cursor:pointer;font-weight:500">Clear</button>
+    </div>
+    <button class="send-btn" onclick="proceedToDueEmail()" style="width:100%;justify-content:center;padding:12px">Continue to Email →</button>
+  </div>
+</div>
+
+<div class="email-modal" id="dueEmailModal">
+  <div class="email-box">
+    <h3>✉ Due This Week — Broker Email
+      <button onclick="document.getElementById('dueEmailModal').classList.remove('show')" style="background:none;border:none;font-size:18px;color:var(--text-dim);cursor:pointer">✕</button>
+    </h3>
+    <div class="email-field">
+      <label>To</label>
+      <input type="email" id="dueEmailTo" placeholder="broker@currencies4you.com">
+    </div>
+    <div class="email-field">
+      <label>Subject</label>
+      <input type="text" id="dueEmailSubject">
+    </div>
+    <div class="email-field">
+      <label>Message</label>
+      <textarea id="dueEmailBody" style="min-height:260px;line-height:1.6"></textarea>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:14px">
+      <button class="send-btn" style="background:var(--bg);color:var(--text-mid);border:1.5px solid var(--border)" onclick="document.getElementById('dueEmailModal').classList.remove('show');document.getElementById('dueSelectModal').classList.add('show')">← Back</button>
+      <button class="send-btn" onclick="sendDueEmail()">✉ Open in Outlook</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('dueEmailModal').classList.remove('show')">Cancel</button>
+    </div>
+  </div>
 </div>
 
 <!-- Client detail modal -->
@@ -466,6 +539,7 @@ function switchTab(name) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   document.getElementById('panel-'+name).classList.add('active');
+  if (name === 'due') renderDueThisWeek();
 }
 
 // ── File handling ─────────────────────────────────────────────────
@@ -553,6 +627,7 @@ function processAndStore() {
 
   renderDashboard();
   renderMonthlyReport();
+  renderDueThisWeek();
   switchTab('dashboard');
 }
 
@@ -1183,6 +1258,236 @@ function sendEmail() {
   const to      = document.getElementById('emailTo').value.trim();
   const subject = document.getElementById('emailSubject').value.trim();
   const body    = document.getElementById('emailBody').value.trim();
+  if (to) localStorage.setItem(STORE_EMAIL, to);
+  window.location.href = 'mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+}
+
+// ── Trading pattern analysis ──────────────────────────────────────
+function analyseClientPattern(trades) {
+  // Sort trades by date
+  const sorted = [...trades].filter(t => t._date).sort((a,b) => a._date - b._date);
+  if (sorted.length < 2) return null;
+
+  // Calculate gaps between trades in days
+  const gaps = [];
+  for (let i = 1; i < sorted.length; i++) {
+    const gap = Math.round((sorted[i]._date - sorted[i-1]._date) / (1000*60*60*24));
+    if (gap > 0) gaps.push(gap);
+  }
+  if (!gaps.length) return null;
+
+  const avgGap = gaps.reduce((s,g) => s+g, 0) / gaps.length;
+
+  // Standard deviation of gaps — measures consistency
+  const variance = gaps.reduce((s,g) => s + Math.pow(g - avgGap, 2), 0) / gaps.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = stdDev / avgGap; // coefficient of variation — lower = more consistent
+
+  // Average day of month
+  const days = sorted.map(t => t._date.getDate());
+  const avgDay = Math.round(days.reduce((s,d) => s+d, 0) / days.length);
+
+  // Confidence based on consistency
+  let confidence, confidenceScore;
+  if (cv < 0.25 && sorted.length >= 4) { confidence = 'high';   confidenceScore = 3; }
+  else if (cv < 0.5  && sorted.length >= 3) { confidence = 'medium'; confidenceScore = 2; }
+  else { confidence = 'low'; confidenceScore = 1; }
+
+  // Next expected trade date based on last trade + avg gap
+  const lastTrade = sorted[sorted.length - 1]._date;
+  const nextExpected = new Date(lastTrade.getTime() + avgGap * 24*60*60*1000);
+
+  return { avgGap: Math.round(avgGap), stdDev: Math.round(stdDev), avgDay, confidence, confidenceScore, nextExpected, lastTrade, tradeCount: sorted.length };
+}
+
+function buildDueThisWeek() {
+  const now = new Date();
+  const weekEnd = new Date(now.getTime() + 7 * 24*60*60*1000);
+
+  // Group all trades by client with parsed dates
+  const byClient = {};
+  allTrades.forEach(t => {
+    const d = parseDate(t.date);
+    if (!d) return;
+    if (!byClient[t.client]) byClient[t.client] = { trades:[], accountType: t.accountType||'', bookedBy: t.bookedBy||'' };
+    byClient[t.client].trades.push({ ...t, _date: d });
+  });
+
+  const due = [];
+  Object.entries(byClient).forEach(([client, data]) => {
+    const pattern = analyseClientPattern(data.trades);
+    if (!pattern) return;
+
+    // Check if next expected trade falls within next 7 days
+    const daysUntilDue = Math.round((pattern.nextExpected - now) / (1000*60*60*24));
+    if (daysUntilDue >= -1 && daysUntilDue <= 7) {
+      // Check they haven't already traded this week
+      const tradedThisWeek = data.trades.some(t => {
+        const gap = Math.round((now - t._date) / (1000*60*60*24));
+        return gap >= 0 && gap <= 7;
+      });
+      if (!tradedThisWeek) {
+        due.push({
+          client,
+          accountType: data.accountType,
+          bookedBy:    data.bookedBy,
+          pattern,
+          daysUntilDue,
+          nextExpected: pattern.nextExpected,
+          lastTrade:    pattern.lastTrade,
+        });
+      }
+    }
+  });
+
+  return due.sort((a,b) => a.daysUntilDue - b.daysUntilDue);
+}
+
+function renderDueThisWeek() {
+  if (!allTrades.length) {
+    document.getElementById('dueContent').innerHTML = '<div class="empty-state"><span style="font-size:36px">⏰</span><p>Upload trade data to see predicted trading activity</p></div>';
+    return;
+  }
+
+  const filterAT = document.getElementById('dueFilterAccountType').value;
+  const filterConf = document.getElementById('dueFilterConfidence').value;
+
+  // Populate broker dropdown
+  const brokerSel = document.getElementById('dueFilterBookedBy');
+  const curBroker = brokerSel.value;
+  const allBrokers = [...new Set(allTrades.map(t=>t.bookedBy||'').filter(Boolean))].sort();
+  brokerSel.innerHTML = '<option value="">All brokers</option>' +
+    allBrokers.map(b=>`<option value="${b}" ${b===curBroker?'selected':''}>${b}</option>`).join('');
+  const filterBB = brokerSel.value;
+
+  let due = buildDueThisWeek();
+  if (filterAT) due = due.filter(d => d.accountType && d.accountType.toLowerCase() === filterAT);
+  if (filterBB) due = due.filter(d => d.bookedBy === filterBB);
+  if (filterConf) due = due.filter(d => d.pattern.confidence === filterConf);
+
+  const container = document.getElementById('dueContent');
+
+  if (!due.length) {
+    container.innerHTML = '<div class="empty-state"><span style="font-size:36px">✅</span><p>No clients predicted to trade this week based on current filters.</p></div>';
+    return;
+  }
+
+  const confLabel = { high:'High', medium:'Medium', low:'Low' };
+  const confBadge = { high:'badge-high', medium:'badge-medium', low:'badge-low' };
+
+  let html = `<div style="background:var(--blue-light);border:1px solid var(--blue-mid);border-radius:8px;padding:14px;margin-bottom:18px;font-size:13px;color:var(--text-mid)">
+    <strong style="color:var(--blue)">${due.length} client${due.length>1?'s':''} predicted to trade this week</strong> — based on their historical trading patterns. Use this to reach out proactively.
+  </div>`;
+
+  html += `<div class="due-card-header"><span>Client</span><span>Expected</span><span>Avg Frequency</span><span>Confidence</span></div>`;
+
+  due.forEach(d => {
+    const expectedStr = d.daysUntilDue === 0 ? 'Today' :
+                        d.daysUntilDue === 1 ? 'Tomorrow' :
+                        d.daysUntilDue < 0   ? 'Overdue' :
+                        `In ${d.daysUntilDue} days`;
+    const expectedDate = d.nextExpected.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+    const lastStr = d.lastTrade.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const safeClient = d.client.replace(/'/g,"\'");
+
+    html += `<div class="due-card" onclick="openDetail('${safeClient}')">
+      <div>
+        <div style="font-size:14px;font-weight:600;color:var(--text);margin-bottom:4px">${d.client}</div>
+        <div style="font-size:11px;color:var(--text-dim)">${d.accountType||''} ${d.bookedBy?'· '+d.bookedBy:''} · Last traded: ${lastStr}</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--blue)">${expectedStr}</div>
+        <div style="font-size:11px;color:var(--text-dim)">${expectedDate}</div>
+      </div>
+      <div style="font-size:12px;color:var(--text-mid)">Every ~${d.pattern.avgGap} days</div>
+      <div><span class="${confBadge[d.pattern.confidence]}">${confLabel[d.pattern.confidence]}</span></div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// ── Due This Week email ────────────────────────────────────────────
+let _dueClients = [];
+
+function openDueEmailModal() {
+  _dueClients = buildDueThisWeek();
+  const filterAT = document.getElementById('dueFilterAccountType').value;
+  const filterBB = document.getElementById('dueFilterBookedBy').value;
+  const filterConf = document.getElementById('dueFilterConfidence').value;
+  if (filterAT)   _dueClients = _dueClients.filter(d => d.accountType && d.accountType.toLowerCase() === filterAT);
+  if (filterBB)   _dueClients = _dueClients.filter(d => d.bookedBy === filterBB);
+  if (filterConf) _dueClients = _dueClients.filter(d => d.pattern.confidence === filterConf);
+
+  if (!_dueClients.length) { alert('No clients to email based on current filters.'); return; }
+
+  const list = document.getElementById('dueClientSelectList');
+  list.innerHTML = _dueClients.map((d,i) => {
+    const expectedStr = d.daysUntilDue <= 0 ? 'Due now' : `Due in ${d.daysUntilDue} day${d.daysUntilDue>1?'s':''}`;
+    return `<div class="client-select-item checked" id="dcsi-${i}" onclick="toggleDueClient(${i},this)">
+      <input type="checkbox" checked id="dcsc-${i}" onclick="event.stopPropagation();toggleDueClient(${i},document.getElementById('dcsi-${i}'))">
+      <div style="flex:1">
+        <div class="client-select-name">${d.client}</div>
+        <div class="client-select-detail">${expectedStr} · Every ~${d.pattern.avgGap} days · ${d.pattern.confidence} confidence${d.bookedBy?' · '+d.bookedBy:''}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('dueSelectModal').classList.add('show');
+}
+
+function toggleDueClient(i, el) {
+  const cb = document.getElementById('dcsc-'+i);
+  cb.checked = !cb.checked;
+  el.classList.toggle('checked', cb.checked);
+}
+
+function proceedToDueEmail() {
+  const selected = _dueClients.filter((d,i) => {
+    const cb = document.getElementById('dcsc-'+i);
+    return cb && cb.checked;
+  });
+  if (!selected.length) { alert('Please select at least one client.'); return; }
+
+  document.getElementById('dueSelectModal').classList.remove('show');
+
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-GB',{day:'2-digit',month:'long',year:'numeric'});
+  const lines = selected.map(d => {
+    const expectedStr = d.daysUntilDue <= 0 ? 'due now / overdue' : `due in ${d.daysUntilDue} day${d.daysUntilDue>1?'s':''}`;
+    const lastStr = d.lastTrade.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+    const confStr = { high:'High', medium:'Medium', low:'Low' }[d.pattern.confidence];
+    return `  • ${d.client} — ${expectedStr} (trades every ~${d.pattern.avgGap} days, last traded ${lastStr}) [${confStr} confidence]`;
+  }).join('
+');
+
+  document.getElementById('dueEmailTo').value = localStorage.getItem(STORE_EMAIL)||'';
+  document.getElementById('dueEmailSubject').value = `C4U — Clients Due to Trade This Week — ${now.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}`;
+  document.getElementById('dueEmailBody').value = `Hi,
+
+Please find below a list of clients predicted to trade this week based on their historical trading patterns. Please reach out proactively before they come to us or go elsewhere.
+
+${lines}
+
+Confidence levels are based on how consistent each client's trading pattern is — High confidence clients have very regular trading intervals.
+
+Please prioritise reaching out to High and Medium confidence clients first.
+
+Warm Regards,
+
+Shyam S. Gokani Head of Trading | www.currencies4you.com
+
+T: +44 (0) 1322 319550 M: +44 (0) 7534 285661 E: shyam.gokani@currencies4you.com A: Currencies 4 You, Regus House, Victory Way, Admirals Park, Crossway Dartford, DA2 6QD
+
+This email and any attachments may be confidential and/or legally privileged. If you have received this email and you are not a named addressee, please inform the sender by return email and delete both emails. Currencies 4 You is a company registered in England and Wales (registered no. 06866898).`;
+
+  document.getElementById('dueEmailModal').classList.add('show');
+}
+
+function sendDueEmail() {
+  const to      = document.getElementById('dueEmailTo').value.trim();
+  const subject = document.getElementById('dueEmailSubject').value.trim();
+  const body    = document.getElementById('dueEmailBody').value.trim();
   if (to) localStorage.setItem(STORE_EMAIL, to);
   window.location.href = 'mailto:'+encodeURIComponent(to)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
 }
