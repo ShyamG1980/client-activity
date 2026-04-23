@@ -265,10 +265,16 @@ header { background:var(--blue); padding:16px 20px; display:flex; align-items:ce
       <div class="legend-item"><div class="dot-green"></div> Active — trading normally</div>
       <div class="legend-item"><div class="dot-amber"></div> Watch — frequency or amount dropping</div>
       <div class="legend-item"><div class="dot-red"></div> At Risk — not traded or significant drop</div>
-      <div class="legend-item"><div class="dot-grey"></div> Dormant — no trades in 6+ months</div>
+      <div class="legend-item"><div class="dot-grey"></div> Dormant — no trades in 3+ months</div>
     </div>
 
     <div class="filters">
+      <select class="filter-select" id="filterMinSpread" onchange="renderDashboard()">
+        <option value="">All spreads</option>
+        <option value="0.5">Spread ≥ 0.5%</option>
+        <option value="1.0">Spread ≥ 1.0%</option>
+        <option value="1.5">Spread ≥ 1.5%</option>
+      </select>
       <select class="filter-select" id="filterAccountType" onchange="renderDashboard()">
         <option value="">All account types</option>
         <option value="corporate">Corporate</option>
@@ -723,7 +729,7 @@ function buildClientProfiles() {
     let status = 'green';
 
     // Dormant: no trades in 6+ months
-    if (daysSince > 180) {
+    if (daysSince > 90) {
       status = 'grey';
       alerts.push({ type:'dormant', msg:`No trades in ${Math.floor(daysSince/30)} months` });
     } else {
@@ -756,6 +762,15 @@ function buildClientProfiles() {
 
     const accountType = trades[trades.length-1].accountType || '';
 
+    // Avg spread calculation
+    const tradesWithSpread = trades.filter(t => !isNaN(t.spread) && t.spread > 0);
+    const avgSpread = tradesWithSpread.length
+      ? tradesWithSpread.reduce((s,t) => s + t.spread, 0) / tradesWithSpread.length
+      : 0;
+    const lastSpread = tradesWithSpread.length
+      ? tradesWithSpread[tradesWithSpread.length-1].spread
+      : 0;
+
     // Revenue calculation — spread% * notional per trade
     const tradesWithRevenue = trades.filter(t => !isNaN(t.spread) && t.spread > 0 && !isNaN(t.amount) && t.amount > 0);
     const revenueByMonth = {};
@@ -785,6 +800,8 @@ function buildClientProfiles() {
       trades,
       accountType,
       bookedBy,
+      avgSpread,
+      lastSpread,
       avgMonthlyRevenue,
       missedRevenue,
       revenueByMonth,
@@ -836,6 +853,7 @@ function renderDashboard() {
   const filterBookedBy = document.getElementById('filterBookedBy').value;
   if (filterAccountType) filtered = filtered.filter(p => p.accountType && p.accountType.toLowerCase() === filterAccountType);
   if (filterBookedBy)    filtered = filtered.filter(p => p.bookedBy === filterBookedBy);
+  if (filterMinSpread)   filtered = filtered.filter(p => p.avgSpread >= filterMinSpread);
   if (filterLastTraded)  filtered = filtered.filter(p => monthKey(p.lastDate) === filterLastTraded);
   if (filterStatus)      filtered = filtered.filter(p => p.status === filterStatus);
   if (search)            filtered = filtered.filter(p => p.client.toLowerCase().includes(search));
@@ -867,6 +885,7 @@ function renderDashboard() {
       ${p.accountType||p.bookedBy ? `<div style="font-size:10px;font-weight:600;color:var(--blue);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">${[p.accountType,p.bookedBy].filter(Boolean).join(' · ')}</div>` : ""}
       <div class="client-meta">Last trade: <strong>${lastDateStr}</strong> (${p.daysSince}d ago)</div>
       <div class="client-meta">Avg trades/month: <strong>${p.avgCount}</strong>${amtStr?' · '+amtStr:''}</div>
+      ${p.avgSpread>0?`<div class="client-meta">Avg spread: <strong style="color:${p.avgSpread>=0.5?'var(--green)':'var(--text-mid'}">${p.avgSpread.toFixed(2)}%</strong>${p.lastSpread>0?' · Last: '+p.lastSpread.toFixed(2)+'%':''}</div>`:''}
       <div class="client-alerts">${alertHtml}</div>
     </div>`;
   }).join('');
@@ -934,6 +953,8 @@ function openDetail(client) {
       ${p.avgAmount>0?`<div class="detail-row"><span>Avg monthly volume</span><span>${formatAmount(p.avgAmount)}</span></div>`:''}
       <div class="detail-row"><span>Last trade date</span><span>${p.lastDate.toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})}</span></div>
       <div class="detail-row"><span>Days since last trade</span><span>${p.daysSince} days</span></div>
+      \${p.avgSpread>0?\`<div class="detail-row"><span>Avg spread</span><span style="color:\${p.avgSpread>=0.5?'var(--green)':'var(--amber)'};font-weight:700">\${p.avgSpread.toFixed(2)}%</span></div>\`:''}
+      \${p.lastSpread>0?\`<div class="detail-row"><span>Last spread</span><span>\${p.lastSpread.toFixed(2)}%</span></div>\`:''}
     </div>
 
     ${p.avgMonthlyRevenue > 0 ? `<div class="detail-section">
