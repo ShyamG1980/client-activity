@@ -849,8 +849,10 @@ function renderDashboard() {
       return `<option value="${mk}" ${mk===currentVal?'selected':''}>${label}</option>`;
     }).join('');
 
+  const filterBookedBy  = document.getElementById('filterBookedBy').value;
+  const filterMinSpread = parseFloat(document.getElementById('filterMinSpread').value) || 0;
+
   let filtered = all;
-  const filterBookedBy = document.getElementById('filterBookedBy').value;
   if (filterAccountType) filtered = filtered.filter(p => p.accountType && p.accountType.toLowerCase() === filterAccountType);
   if (filterBookedBy)    filtered = filtered.filter(p => p.bookedBy === filterBookedBy);
   if (filterMinSpread)   filtered = filtered.filter(p => p.avgSpread >= filterMinSpread);
